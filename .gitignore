@@ -1,0 +1,12 @@
+# Dependencies
+node_modules/
+client/node_modules/
+
+# Local databases & logs
+data/
+*.log
+.env
+.DS_Store
+
+# Production dist
+client/dist/
