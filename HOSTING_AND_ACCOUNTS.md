@@ -9,8 +9,8 @@ This file maintains a centralized record of all cloud services, hosting provider
 | Service | Account / Email | Purpose | Plan / Cost | Status | Live URL |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **GitHub** | `Vijay-1010110` | Source Code & CI/CD | Free ($0) | ✅ Active | [Repo Link](https://github.com/Vijay-1010110/TalkToStranger) |
-| **Render** | `thirdparty597@gmail.com` | Primary Web Service (24/7) | Free ($0) | 🚀 Setting up | `https://talktostranger.onrender.com` |
-| **Cloudflare** | Quick Tunnel | Temporary Global Test Link | Free ($0) | ✅ Live | [Tunnel URL](https://samba-fairy-armstrong-synthesis.trycloudflare.com) |
+| **Render** | `thirdparty597@gmail.com` | Primary Web Service (24/7 HTTPS) | Free ($0) | 🚀 Active / Deploying | `https://talktostranger.onrender.com` |
+| **Cloudflare** | Quick Tunnel | Ephemeral local dev link | Free ($0) | ⚠️ Expired when idle | Use Render HTTPS for phones |
 | **Google STUN** | Cluster (`stun.l.google.com:19302`) | P2P NAT Traversal | Free ($0) | ✅ Active | Built-in |
 
 ---
@@ -51,6 +51,20 @@ This file maintains a centralized record of all cloud services, hosting provider
 - **Never commit passwords, private keys, or actual JWT secrets into Git.**
 - Use Render's **Environment** tab in their dashboard to store sensitive keys.
 - Media streams are 100% Peer-to-Peer (WebRTC) and never touch or store on server disks.
+
+---
+
+## 📱 Mobile Phone Testing & WebRTC HTTPS Requirements
+
+### Why did the temporary tunnel or link fail to load on mobile?
+1. **Cloudflare Quick Tunnel Idle Expiration**:
+   Quick tunnels (`trycloudflare.com`) without a persistent registered cloudflared service have a short TTL and expire automatically after inactivity (`error="Unauthorized: Tunnel not found"`).
+2. **Strict Mobile WebRTC Security (HTTPS Only)**:
+   Modern mobile browsers (iOS Safari and Android Chrome) strictly block access to `navigator.mediaDevices.getUserMedia()` unless the site is served over a valid **HTTPS** origin or `localhost`.
+3. **The Solution**:
+   Always open the permanent Render production HTTPS URL:
+   `https://talktostranger.onrender.com`
+   This provides full SSL certificates, permanent 24/7 uptime, and camera/mic permissions across mobile phones.
 
 ---
 
