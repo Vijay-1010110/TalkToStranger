@@ -39,6 +39,10 @@ export default function ShortcutsModal({ isOpen, onClose }) {
           ))}
         </div>
 
+        <div className="mt-3 pt-2.5 border-t border-[#334155] text-[10px] font-mono text-slate-400 text-center">
+          <span>Tester mode: 5-click logo or open with ?test=1</span>
+        </div>
+
         <button
           onClick={onClose}
           className="w-full mt-4 py-1.5 rounded bg-white hover:bg-[#e0e0e0] text-black font-semibold text-xs transition-colors"

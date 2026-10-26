@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Volume2, VolumeX, HelpCircle, Shield, User, Crown, Home } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -14,15 +14,67 @@ export default function Navbar({
 }) {
   const { user, isPriority, isGuest } = useAuth();
 
+  // Tester mode state: online count hidden by default for regular users
+  const [showDevStats, setShowDevStats] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const search = window.location.search;
+      if (search.includes('dev=1') || search.includes('test=1') || search.includes('stats=1')) {
+        localStorage.setItem('stranger_show_stats', 'true');
+        return true;
+      }
+      return localStorage.getItem('stranger_show_stats') === 'true';
+    }
+    return false;
+  });
+
+  const clickCountRef = useRef(0);
+  const clickTimerRef = useRef(null);
+
+  const handleBrandClick = () => {
+    clickCountRef.current += 1;
+    if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+    clickTimerRef.current = setTimeout(() => {
+      clickCountRef.current = 0;
+    }, 2500);
+
+    // If clicked 5 times within 2.5s, toggle tester stats
+    if (clickCountRef.current >= 5) {
+      clickCountRef.current = 0;
+      setShowDevStats((prev) => {
+        const next = !prev;
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('stranger_show_stats', next ? 'true' : 'false');
+        }
+        return next;
+      });
+    } else {
+      if (onGoHome) onGoHome();
+    }
+  };
+
+  // Expose toggle command in browser console for testing
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.toggleOnlineCount = () => {
+        setShowDevStats((prev) => {
+          const next = !prev;
+          localStorage.setItem('stranger_show_stats', next ? 'true' : 'false');
+          console.log(`[TalkToStranger] Live online user count visible: ${next}`);
+          return next;
+        });
+      };
+    }
+  }, []);
+
   return (
     <header className="h-11 sm:h-12 border-b border-[#334155] bg-[#1e293b] px-3 sm:px-4 flex items-center justify-between z-20 shrink-0 shadow-sm">
       
       {/* Left: Brand & Tier Badge */}
       <div className="flex items-center gap-2 sm:gap-3">
         <button
-          onClick={onGoHome}
+          onClick={handleBrandClick}
           className="font-mono font-bold text-xs sm:text-sm tracking-wider text-white uppercase hover:text-sky-400 transition-colors flex items-center gap-1.5"
-          title="Return to Home"
+          title="Return to Home (5-click to toggle tester stats)"
         >
           <span>Stranger</span>
         </button>
@@ -57,12 +109,30 @@ export default function Navbar({
         )}
       </div>
 
-      {/* Center: Online count */}
-      <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-mono text-slate-400">
-        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-        <span className="hidden xs:inline">{onlineCount.toLocaleString()} online</span>
-        <span className="xs:hidden">{onlineCount.toLocaleString()}</span>
-      </div>
+      {/* Center: Online count (Visible only in tester mode) / Clean P2P Status for regular users */}
+      {showDevStats ? (
+        <button
+          type="button"
+          onClick={() => {
+            setShowDevStats(false);
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('stranger_show_stats', 'false');
+            }
+          }}
+          className="flex items-center gap-1.5 text-[11px] sm:text-xs font-mono text-sky-400 bg-sky-950/60 border border-sky-800/60 hover:bg-sky-900/60 px-2 py-0.5 rounded shadow-sm transition-all"
+          title="Tester stats visible only to you (click to hide)"
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>{onlineCount.toLocaleString()} online</span>
+          <span className="text-[9px] bg-sky-400 text-slate-900 font-bold px-1 rounded">TEST</span>
+        </button>
+      ) : (
+        <div className="flex items-center gap-1.5 text-[11px] sm:text-xs font-mono text-slate-400">
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+          <span className="hidden xs:inline">P2P Encrypted</span>
+          <span className="xs:hidden">P2P</span>
+        </div>
+      )}
 
       {/* Right: User identity & Controls */}
       <div className="flex items-center gap-1 sm:gap-2">
