@@ -31,20 +31,24 @@ export default function HomeView({
 
   const faqs = [
     {
-      q: "Is Talk to Stranger completely free?",
-      a: "Yes. Talk to Stranger is 100% free with no paywalls or mandatory subscriptions. Video chat, voice calling, and text messaging use direct peer-to-peer WebRTC technology."
+      q: "What makes Talk to Stranger the best alternative for Omegle?",
+      a: "Following Omegle's shutdown, Talk to Stranger was engineered as a high-speed, secure, and 100% free Omegle alternative. It pairs you with random strangers across the globe for live video chat, voice calls, and text messaging with no bots, no registration, and end-to-end WebRTC encryption."
     },
     {
-      q: "Do I need to sign up or create an account?",
+      q: "Is Talk to Stranger completely free with no coins or subscriptions?",
+      a: "Yes. Unlike apps like OmeTV or Monkey that require coins, phone numbers, or credit cards, Talk to Stranger is 100% free with no paywalls or mandatory accounts."
+    },
+    {
+      q: "Do I need to sign up or create an account to talk to strangers?",
       a: "No. You can start chatting instantly with zero registration. A random anonymous guest profile is generated automatically. Optional accounts are available if you wish to reserve a custom username."
     },
     {
-      q: "How does the random matchmaking work?",
-      a: "When you select Chat, Voice, or Video mode and press Start, our matchmaking engine pairs you with another available user in the same mode in less than a second."
+      q: "Does this Omegle alternative work on iPhone and Android mobile phones?",
+      a: "Yes! Talk to Stranger runs smoothly on iOS Safari, Android Chrome, and all desktop browsers. It supports switching between front and back cameras and microphone selection."
     },
     {
-      q: "Is Talk to Stranger a good Omegle alternative?",
-      a: "Yes. Following Omegle's shutdown, Talk to Stranger was engineered as a high-speed, minimal, and secure alternative featuring modern encrypted WebRTC streams, ultra-fast P2P chat, and instant skipping (Esc key)."
+      q: "How does Talk to Stranger protect user privacy and security?",
+      a: "All video, audio, and text streams use direct peer-to-peer WebRTC encryption. Conversations never route through or get stored on media servers, ensuring maximum privacy."
     }
   ];
 
@@ -54,10 +58,13 @@ export default function HomeView({
         
         {/* Header / H1 for SEO */}
         <div className="mb-5 text-center sm:text-left">
-          <div className="flex items-center justify-center sm:justify-start gap-2">
+          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-mono uppercase">
               Talk to Stranger
             </h1>
+            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/20 text-sky-400 border border-sky-500/30 font-bold">
+              OMEGLE ALTERNATIVE
+            </span>
             {isPriority && (
               <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white text-slate-900 font-bold">
                 PRIORITY PASS
@@ -65,7 +72,7 @@ export default function HomeView({
             )}
           </div>
           <p className="text-xs text-slate-400 mt-1 font-sans">
-            Free anonymous random video chat, voice call &amp; text chat. Direct WebRTC peer-to-peer.
+            The #1 free alternative for Omegle. Random video chat, anonymous voice call &amp; text chat. Direct WebRTC P2P.
           </p>
         </div>
 
