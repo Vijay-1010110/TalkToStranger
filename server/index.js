@@ -71,13 +71,13 @@ io.on('connection', (socket) => {
   broadcastStats();
 
   // 1. Join queue / Find stranger
-  socket.on('find-stranger', ({ mode = 'video', tier = 'guest' }) => {
+  socket.on('find-stranger', ({ mode = 'video', tier = 'guest', gender = 'other' }) => {
     cleanupCurrentMatch(socket);
 
-    const result = matchmaker.addUser(socket.id, mode, tier);
+    const result = matchmaker.addUser(socket.id, mode, tier, gender);
 
     if (result && result.matched) {
-      const { user1, user2, user1Tier, user2Tier, roomId } = result;
+      const { user1, user2, user1Tier, user2Tier, user1Gender, user2Gender, roomId } = result;
 
       const s1 = io.sockets.sockets.get(user1);
       const s2 = io.sockets.sockets.get(user2);
@@ -90,6 +90,7 @@ io.on('connection', (socket) => {
         roomId,
         partnerId: user2,
         partnerTier: user2Tier,
+        partnerGender: user2Gender || 'other',
         isInitiator: true,
         mode,
         iceServers: FREE_ICE_SERVERS
@@ -100,6 +101,7 @@ io.on('connection', (socket) => {
         roomId,
         partnerId: user1,
         partnerTier: user1Tier,
+        partnerGender: user1Gender || 'other',
         isInitiator: false,
         mode,
         iceServers: FREE_ICE_SERVERS
@@ -161,7 +163,7 @@ io.on('connection', (socket) => {
   });
 
   // 6. Skip stranger / Next
-  socket.on('skip-stranger', ({ requeue = false, mode, tier = 'guest' }) => {
+  socket.on('skip-stranger', ({ requeue = false, mode, tier = 'guest', gender = 'other' }) => {
     const prevMatch = matchmaker.endMatch(socket.id);
     if (prevMatch) {
       io.to(prevMatch.partnerId).emit('stranger-left', {
@@ -179,10 +181,10 @@ io.on('connection', (socket) => {
 
     if (requeue) {
       const targetMode = mode || (prevMatch ? prevMatch.mode : 'video');
-      const result = matchmaker.addUser(socket.id, targetMode, tier);
+      const result = matchmaker.addUser(socket.id, targetMode, tier, gender);
 
       if (result && result.matched) {
-        const { user1, user2, user1Tier, user2Tier, roomId } = result;
+        const { user1, user2, user1Tier, user2Tier, user1Gender, user2Gender, roomId } = result;
         const s1 = io.sockets.sockets.get(user1);
         const s2 = io.sockets.sockets.get(user2);
 
@@ -193,6 +195,7 @@ io.on('connection', (socket) => {
           roomId,
           partnerId: user2,
           partnerTier: user2Tier,
+          partnerGender: user2Gender || 'other',
           isInitiator: true,
           mode: targetMode,
           iceServers: FREE_ICE_SERVERS
@@ -202,6 +205,7 @@ io.on('connection', (socket) => {
           roomId,
           partnerId: user1,
           partnerTier: user1Tier,
+          partnerGender: user1Gender || 'other',
           isInitiator: false,
           mode: targetMode,
           iceServers: FREE_ICE_SERVERS

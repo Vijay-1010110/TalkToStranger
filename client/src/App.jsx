@@ -42,8 +42,22 @@ function MainApp() {
   const [messages, setMessages] = useState([]);
   const [strangerTyping, setStrangerTyping] = useState(false);
   const [partnerTier, setPartnerTier] = useState('guest');
+  const [gender, setGender] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('stranger_user_gender') || 'male';
+    }
+    return 'male';
+  });
+  const [partnerGender, setPartnerGender] = useState('other');
   const [isSoundMuted, setIsSoundMuted] = useState(false);
   const [appReady, setAppReady] = useState(false);
+
+  const handleSetGender = (val) => {
+    setGender(val);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('stranger_user_gender', val);
+    }
+  };
 
   // Modals
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
@@ -144,6 +158,7 @@ function MainApp() {
       sounds.playConnect();
       setActiveMode(data.mode);
       setPartnerTier(data.partnerTier || 'guest');
+      setPartnerGender(data.partnerGender || 'other');
       setAppState('matched');
       setMessages([
         {
@@ -229,7 +244,8 @@ function MainApp() {
 
     socket.emit('find-stranger', {
       mode: selectedMode,
-      tier: user?.tier || 'guest'
+      tier: user?.tier || 'guest',
+      gender: gender || 'other'
     });
   };
 
@@ -245,7 +261,8 @@ function MainApp() {
     socket.emit('skip-stranger', {
       requeue: true,
       mode: activeMode,
-      tier: user?.tier || 'guest'
+      tier: user?.tier || 'guest',
+      gender: gender || 'other'
     });
   };
 
@@ -386,6 +403,8 @@ function MainApp() {
           <HomeView
             selectedMode={selectedMode}
             setSelectedMode={setSelectedMode}
+            gender={gender}
+            setGender={handleSetGender}
             onStartSearch={handleStartSearch}
             localStream={localStream}
             isMuted={isMuted}
@@ -433,6 +452,7 @@ function MainApp() {
                   connectionState={connectionState}
                   isDataChannelReady={isDataChannelReady}
                   partnerTier={partnerTier}
+                  partnerGender={partnerGender}
                 />
               </div>
             )}
@@ -468,6 +488,7 @@ function MainApp() {
                 isMatched={appState === 'matched'}
                 isDataChannelReady={isDataChannelReady}
                 partnerTier={partnerTier}
+                partnerGender={partnerGender}
               />
             </div>
 

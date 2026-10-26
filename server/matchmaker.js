@@ -1,33 +1,31 @@
 /**
  * In-Memory Matchmaker for TalkToStranger
  * Ultra-fast queueing algorithm supporting text, audio, and video modes
- * with Priority queue acceleration and instant FIFO pairing.
+ * with Priority queue acceleration, gender metadata, and instant FIFO pairing.
  */
 
 class Matchmaker {
   constructor() {
-    // Mode-specific queues: Map<mode, Set<socketId>>
     this.queues = {
       chat: new Set(),
       audio: new Set(),
       video: new Set()
     };
 
-    // Priority queues: Map<mode, Set<socketId>>
     this.priorityQueues = {
       chat: new Set(),
       audio: new Set(),
       video: new Set()
     };
 
-    // User metadata: socketId -> { mode, tier, joinedAt }
+    // User metadata: socketId -> { mode, tier, gender, joinedAt }
     this.users = new Map();
 
     // Active matches: socketId -> { partnerId, roomId, mode, matchedAt }
     this.matches = new Map();
   }
 
-  addUser(socketId, mode = 'video', tier = 'guest') {
+  addUser(socketId, mode = 'video', tier = 'guest', gender = 'other') {
     if (!['chat', 'audio', 'video'].includes(mode)) {
       mode = 'video';
     }
@@ -35,6 +33,7 @@ class Matchmaker {
     this.users.set(socketId, {
       mode,
       tier,
+      gender: gender || 'other',
       joinedAt: Date.now()
     });
 
@@ -48,7 +47,7 @@ class Matchmaker {
 
     let bestMatchId = null;
 
-    // Search order: Always check priority queue first, then general queue
+    // Search order: Check priority queue first, then general queue
     const candidatePools = [priorityQueue, queue];
 
     for (const pool of candidatePools) {
@@ -81,12 +80,14 @@ class Matchmaker {
       this.matches.set(socketId, {
         partnerId: bestMatchId,
         partnerTier: candidateUser ? candidateUser.tier : 'guest',
+        partnerGender: candidateUser ? candidateUser.gender : 'other',
         ...matchData
       });
 
       this.matches.set(bestMatchId, {
         partnerId: socketId,
         partnerTier: currentUser ? currentUser.tier : 'guest',
+        partnerGender: currentUser ? currentUser.gender : 'other',
         ...matchData
       });
 
@@ -96,11 +97,12 @@ class Matchmaker {
         user2: bestMatchId,
         user1Tier: currentUser ? currentUser.tier : 'guest',
         user2Tier: candidateUser ? candidateUser.tier : 'guest',
+        user1Gender: currentUser ? currentUser.gender : 'other',
+        user2Gender: candidateUser ? candidateUser.gender : 'other',
         roomId,
         mode
       };
     } else {
-      // Add to corresponding queue
       if (tier === 'priority') {
         priorityQueue.add(socketId);
       } else {

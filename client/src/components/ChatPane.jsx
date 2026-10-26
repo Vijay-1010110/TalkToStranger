@@ -16,7 +16,8 @@ export default function ChatPane({
   strangerTyping,
   isMatched,
   isDataChannelReady,
-  partnerTier
+  partnerTier,
+  partnerGender
 }) {
   const [inputText, setInputText] = useState('');
   const messagesEndRef = useRef(null);
@@ -63,13 +64,33 @@ export default function ChatPane({
     inputRef.current?.focus();
   };
 
+  // Helper to format partner gender badge
+  const renderGenderBadge = (gender) => {
+    if (gender === 'male') {
+      return <span className="text-[10px] text-blue-400 font-mono flex items-center gap-0.5">♂ Male</span>;
+    }
+    if (gender === 'female') {
+      return <span className="text-[10px] text-pink-400 font-mono flex items-center gap-0.5">♀ Female</span>;
+    }
+    if (gender === 'other') {
+      return <span className="text-[10px] text-emerald-400 font-mono flex items-center gap-0.5">🧑 Other</span>;
+    }
+    return null;
+  };
+
   return (
     <div className="flex flex-col h-full w-full bg-[#0d0d0d] border-l border-[#1f1f1f] min-h-0">
       
       {/* Header */}
       <div className="h-8 sm:h-9 px-3 border-b border-[#1f1f1f] bg-[#0a0a0a] flex items-center justify-between text-[11px] font-mono text-[#888888] shrink-0">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <span className="font-semibold text-[#cccccc]">CHAT</span>
+          {isMatched && (
+            <div className="flex items-center gap-1 pl-2 border-l border-[#262626]">
+              <span className="text-[#888888]">STRANGER</span>
+              {renderGenderBadge(partnerGender)}
+            </div>
+          )}
           {partnerTier === 'priority' && (
             <span className="text-[9px] px-1 rounded bg-white text-black font-bold">
               VERIFIED
@@ -77,26 +98,26 @@ export default function ChatPane({
           )}
         </div>
         <div className="flex items-center gap-2">
-          <span>{isDataChannelReady ? 'P2P DIRECT' : 'RELAY'}</span>
+          <span className="text-[10px] text-[#777777]">{isDataChannelReady ? 'P2P DIRECT' : 'RELAY'}</span>
         </div>
       </div>
 
       {/* Messages Feed */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2.5 font-sans text-xs min-h-0">
+      <div className="flex-1 overflow-y-auto p-3 space-y-3 font-sans text-xs min-h-0">
         {/* Native Sponsor Notice (Auto-removed for Priority users) */}
         <SponsorCard variant="inline" />
 
-        {/* Welcome Banner (Prevents the chat from looking like a bare void) */}
-        <div className="p-3 my-2 bg-[#121212] border border-[#202020] rounded text-center">
+        {/* Welcome Banner */}
+        <div className="p-3 my-1 bg-[#121212] border border-[#202020] rounded text-center">
           <p className="font-mono text-xs font-semibold text-white">
             You're chatting with a random Stranger.
           </p>
           <p className="text-[11px] text-[#777777] mt-0.5">
-            Messages are end-to-end peer-to-peer encrypted. Say hi!
+            End-to-end peer-to-peer encrypted. Left = Stranger, Right = You.
           </p>
         </div>
 
-        {/* Icebreaker Prompts (Show when message count is low) */}
+        {/* Icebreaker Prompts */}
         {messages.filter(m => m.sender !== 'system').length < 2 && isMatched && (
           <div className="p-2.5 my-2 bg-[#141414] border border-[#242424] rounded">
             <div className="flex items-center gap-1 text-[11px] font-mono text-[#888888] mb-1.5">
@@ -122,8 +143,10 @@ export default function ChatPane({
         {messages.map((msg) => {
           if (msg.sender === 'system') {
             return (
-              <div key={msg.id} className="text-center my-2 text-[11px] font-mono text-[#777777] italic">
-                — {msg.text} —
+              <div key={msg.id} className="flex justify-center my-1.5">
+                <span className="text-[10px] font-mono text-[#888888] bg-[#141414] border border-[#222222] px-2.5 py-1 rounded-full text-center">
+                  — {msg.text} —
+                </span>
               </div>
             );
           }
@@ -131,19 +154,42 @@ export default function ChatPane({
           const isYou = msg.sender === 'you';
 
           return (
-            <div key={msg.id} className="leading-relaxed break-words">
-              <span className={`font-mono font-bold mr-1.5 ${isYou ? 'text-white' : 'text-[#888888]'}`}>
-                {isYou ? 'You:' : 'Stranger:'}
-              </span>
-              <span className="text-[#e0e0e0]">{msg.text}</span>
+            <div
+              key={msg.id}
+              className={`flex w-full ${isYou ? 'justify-end' : 'justify-start'}`}
+            >
+              <div
+                className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-3.5 py-2 text-xs leading-relaxed break-words shadow-sm ${
+                  isYou
+                    ? 'bg-[#2563eb] text-white rounded-tr-xs'
+                    : 'bg-[#1e2433] border border-[#2e394e] text-[#e2e8f0] rounded-tl-xs'
+                }`}
+              >
+                {/* Header label inside bubble */}
+                <div className="flex items-center gap-1.5 mb-1 text-[10px] font-mono">
+                  <span className={`font-semibold ${isYou ? 'text-blue-200' : 'text-[#94a3b8]'}`}>
+                    {isYou ? 'You' : 'Stranger'}
+                  </span>
+                  {!isYou && renderGenderBadge(partnerGender)}
+                </div>
+
+                <div className="whitespace-pre-wrap">{msg.text}</div>
+              </div>
             </div>
           );
         })}
 
         {/* Stranger Typing */}
         {strangerTyping && (
-          <div className="text-[11px] font-mono text-[#777777] italic">
-            Stranger is typing...
+          <div className="flex justify-start">
+            <div className="bg-[#1e2433] border border-[#2e394e] text-[#94a3b8] rounded-2xl rounded-tl-xs px-3.5 py-1.5 text-[11px] font-mono flex items-center gap-2">
+              <span className="flex gap-1 items-center">
+                <span className="w-1.5 h-1.5 bg-[#94a3b8] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                <span className="w-1.5 h-1.5 bg-[#94a3b8] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                <span className="w-1.5 h-1.5 bg-[#94a3b8] rounded-full animate-bounce"></span>
+              </span>
+              <span>Stranger is typing...</span>
+            </div>
           </div>
         )}
 

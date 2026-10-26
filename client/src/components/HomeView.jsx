@@ -6,6 +6,8 @@ import { useAuth } from '../context/AuthContext';
 export default function HomeView({
   selectedMode,
   setSelectedMode,
+  gender = 'male',
+  setGender,
   onStartSearch,
   localStream,
   isMuted,
@@ -215,6 +217,56 @@ export default function HomeView({
             </p>
           </div>
         )}
+
+        {/* Gender Selection */}
+        <div className="mb-4 p-2.5 bg-[#141414] border border-[#222222] rounded">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-mono text-[#888888] uppercase tracking-wider">
+              Your Gender
+            </span>
+            <span className="text-[10px] font-mono text-[#666666]">
+              Shown to your partner
+            </span>
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => setGender && setGender('male')}
+              className={`py-2 px-1 rounded flex items-center justify-center gap-1.5 text-xs font-mono transition-colors border ${
+                gender === 'male'
+                  ? 'bg-blue-600/20 border-blue-500 text-blue-400 font-bold'
+                  : 'bg-[#181818] border-[#262626] text-[#888888] hover:text-white hover:border-[#383838]'
+              }`}
+            >
+              <span>♂</span>
+              <span>Male</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setGender && setGender('female')}
+              className={`py-2 px-1 rounded flex items-center justify-center gap-1.5 text-xs font-mono transition-colors border ${
+                gender === 'female'
+                  ? 'bg-pink-600/20 border-pink-500 text-pink-400 font-bold'
+                  : 'bg-[#181818] border-[#262626] text-[#888888] hover:text-white hover:border-[#383838]'
+              }`}
+            >
+              <span>♀</span>
+              <span>Female</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setGender && setGender('other')}
+              className={`py-2 px-1 rounded flex items-center justify-center gap-1.5 text-xs font-mono transition-colors border ${
+                gender === 'other'
+                  ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400 font-bold'
+                  : 'bg-[#181818] border-[#262626] text-[#888888] hover:text-white hover:border-[#383838]'
+              }`}
+            >
+              <span>🧑</span>
+              <span>Other</span>
+            </button>
+          </div>
+        </div>
 
         {/* Start Button */}
         <button
