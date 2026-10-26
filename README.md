@@ -1,87 +1,56 @@
-# ⚡ Stranger — Minimalist Anonymous Talk to Stranger Platform
+# ⚡ Talk to Stranger — Best Free Omegle Alternative
 
-A high-performance, distraction-free "Talk to Stranger" web application featuring **Text Chat**, **Voice Call**, and **Video Chat**. Built with a **100% free-tier architecture** using direct **WebRTC Peer-to-Peer (P2P)** communication and free public STUN servers—requiring zero paid APIs, zero third-party subscriptions, and zero recurring server costs.
+A high-performance, distraction-free "Talk to Stranger" web application featuring **Text Chat**, **Voice Call**, and **Video Chat**. Built with a **100% free-tier architecture** using direct **WebRTC Peer-to-Peer (P2P)** communication and free public Google STUN servers—requiring zero paid APIs, zero third-party subscriptions, and zero recurring server costs.
 
----
-
-## 🌐 How to Host & Make It Live for Free (100% $0)
-
-Because this app uses **WebRTC**, modern browsers (Chrome, Safari, iOS, Android) strictly require **HTTPS / SSL** to grant camera and microphone permissions (except on `localhost`). 
-
-The methods below provide **free automatic HTTPS certificates** and **persistent WebSocket signaling**.
+🌐 **Live URL**: [https://talktostranger-9my8.onrender.com](https://talktostranger-9my8.onrender.com)  
+🔍 **SEO & Google Search Guide**: [`SEO_AND_GOOGLE_RANKING_GUIDE.md`](./SEO_AND_GOOGLE_RANKING_GUIDE.md)  
+🌐 **Hosting & DevOps Registry**: [`HOSTING_AND_ACCOUNTS.md`](./HOSTING_AND_ACCOUNTS.md)
 
 ---
 
-### Option 1: 24/7 Cloud Hosting on Render.com (Recommended)
+## ✨ Key Features & Capabilities
 
-Render offers a generous **Free Web Service** tier with native persistent WebSocket support, automatic HTTPS, and direct GitHub deployments.
-
-1. **Push your code to GitHub**:
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit"
-   git branch -M main
-   git remote add origin https://github.com/<your-username>/talkToStranger.git
-   git push -u origin main
-   ```
-
-2. **Deploy on Render**:
-   - Go to **[Render.com](https://render.com)** and sign in with GitHub (Free, no credit card required).
-   - Click **New +** → **Web Service**.
-   - Select your `talkToStranger` repository.
-   - Configure:
-     - **Name**: `stranger-chat` (or any name you like)
-     - **Environment**: `Node`
-     - **Build Command**: `npm install && npm run build`
-     - **Start Command**: `npm start`
-     - **Instance Type**: `Free`
-   - Click **Create Web Service**.
-
-3. Render will build the Vite frontend and start the Express signaling server, giving you a live URL:
-   `https://stranger-chat.onrender.com`
+- **🚀 1-Click Instant Pairing**: Anonymous matchmaking in less than a second (no login or account required).
+- **🔒 Direct P2P Encryption**: Video, voice, and data channels flow browser-to-browser via WebRTC (`stun.l.google.com:19302`).
+- **⚧️ Pre-Start Gender Selection**: Choose your gender (Male / Female / Other) shown to your partner.
+- **💬 Dual-Color Chat Feed**: Left-aligned stranger bubbles (dark slate) and right-aligned sender bubbles (cobalt blue) with live typing indicators.
+- **🔲 Dual Video Canvas Switcher**: Toggle between **Normal PiP Mode** (stranger large, self floating in corner) and **Equal 50:50 Split Canvas** (side-by-side or stacked).
+- **🛑 Prominent STOP Button**: Direct 1-click exit back to the Home screen, cleanly releasing all media streams.
+- **🔄 Automatic Re-Matching**: When one partner leaves, skips, or disconnects, the other partner automatically begins searching for another stranger immediately.
+- **🎥 Device Switcher & Privacy Revoke**: Flip between front/back cameras, select microphones, or completely power down hardware access at the OS level.
+- **🌐 External Web Co-Browse**: Synchronized live co-browsing interface for sharing websites and web tools.
+- **🕵️ Hidden Tester Mode**: Online user count is hidden from public visitors so low initial counts don't discourage traffic. Testers can tap the "Stranger" logo 5 times or add `?test=1` to view live counts.
+- **🔍 Comprehensive SEO**: Built-in Google Search Console verification (`googleb22af8257abd7c68`), OpenGraph tags, JSON-LD FAQ schemas, and sitemaps for ranking on "alternative for omegle" and "talk to stranger".
 
 ---
 
-### Option 2: Deploy via Docker (Fly.io or Koyeb)
+## 🌐 Live Deployment & Hosting
 
-The repository includes a production multi-stage `Dockerfile`:
-
-- **Fly.io**:
-  ```bash
-  # Install flyctl
-  fly launch
-  fly deploy
-  ```
-- **Koyeb**:
-  - Connect your GitHub repository to **[koyeb.com](https://www.koyeb.com)**, select Dockerfile build, and deploy on the free nano tier.
-
----
-
-### Option 3: Instant Live Test Link in 30 Seconds (No Sign-up)
-
-If you want an immediate live HTTPS URL right now to test between your phone and computer without pushing to GitHub first, you can use a free tunnel:
-
-```bash
-# In your terminal while 'npm start' or 'npm run dev' is running on port 5000:
-npx localtunnel --port 5000
-```
-This gives you an instant public HTTPS link (e.g. `https://stranger-xyz.loca.lt`) that works across all devices and mobile phones over the internet!
+### Primary 24/7 Hosting (Render.com)
+- **Production URL**: `https://talktostranger-9my8.onrender.com`
+- **Deploy Config**: Node 20 runtime, Auto-deploy on push to `main`.
+- **Build Command**: `npm install && npm run build`
+- **Start Command**: `npm start`
 
 ---
 
 ## 🛠️ Tech Stack & Architecture
 
-- **Backend**: Node.js, Express, Socket.io (WebSocket signaling & in-memory matchmaking queue).
-- **Authentication**: JWT tokens + bcryptjs + file-backed persistent database (`data/database.json`).
+- **Backend**: Node.js, Express 5, Socket.io (WebSocket signaling & FIFO matchmaking engine).
+- **Authentication**: JWT tokens + bcryptjs + persistent database (`data/database.json`).
 - **Frontend**: React 19, Vite, Tailwind CSS, Lucide Icons.
 - **Real-Time Protocol**: WebRTC (`RTCPeerConnection`, `RTCDataChannel`, Google STUN: `stun.l.google.com:19302`).
+- **Search Engine Optimization**: Google Search Console verified property, `robots.txt`, `sitemap.xml`, OpenGraph, Twitter Cards, JSON-LD `WebApplication` & `FAQPage` schemas.
 
 ---
 
 ## 🧪 Testing
 
-Run the automated simulation test:
+Run automated multi-client simulation test:
 ```bash
 npm test
+```
+Run automatic re-match test:
+```bash
+node tests/auto_rematch.test.js
 ```

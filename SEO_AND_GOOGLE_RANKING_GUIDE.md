@@ -116,3 +116,43 @@ Google rewards fast sites:
 - **Mobile Friendly**: Verified across iPhone and Android viewports.
 - **Lightweight Bundle**: Compressed to ~102 kB gzip with zero heavy frameworks.
 - **Fast First Contentful Paint (FCP)**: Minimal initial loader that renders in < 500ms.
+
+---
+
+## 📌 6. Complete SEO Cheat Sheet & Quick-Reference (Keep for Future)
+
+Bookmark this section whenever you need to check or update your search engine configurations:
+
+### 🔑 Verified Search Console Credentials & Links
+| Item | Value / Location | Notes |
+| :--- | :--- | :--- |
+| **Live Production Domain** | `https://talktostranger-9my8.onrender.com` | Primary URL indexed by Google |
+| **Google Search Console** | [search.google.com/search-console](https://search.google.com/search-console) | Account: `thirdparty597@gmail.com` |
+| **GSC Property Name** | `https://talktostranger-9my8.onrender.com/` | URL-prefix property (✅ Verified) |
+| **Google Verification Token** | `googleb22af8257abd7c68` | Matches HTML file & meta tag |
+| **HTML Verification File** | [`client/public/googleb22af8257abd7c68.html`](client/public/googleb22af8257abd7c68.html) | Live at `/googleb22af8257abd7c68.html` |
+| **HTML Verification Tag** | `<meta name="google-site-verification" content="googleb22af8257abd7c68" />` | Embedded in `<head>` |
+| **Sitemap URL** | `https://talktostranger-9my8.onrender.com/sitemap.xml` | Submitted to Google Search Console |
+| **Robots Directives** | `https://talktostranger-9my8.onrender.com/robots.txt` | Allows all crawlers |
+| **Live Health & Stats API** | `https://talktostranger-9my8.onrender.com/api/health` | Returns active user and room counts |
+
+---
+
+### 🕵️ Developer & Tester Cheatsheet (Online User Count)
+The online user counter is **hidden from regular visitors** so small initial visitor counts do not discourage traffic. To view the live counter when testing:
+
+1. **Secret 5-Click**: Tap/click the **"Stranger"** logo in the top-left navbar **5 times** in 2 seconds.
+2. **URL Query Param**: Visit with `?test=1` or `?dev=1` (e.g. `https://talktostranger-9my8.onrender.com/?test=1`).
+3. **Browser Console**: Press `F12` and run `toggleOnlineCount()`.
+4. **Direct API**: Check `https://talktostranger-9my8.onrender.com/api/health` for exact counts.
+
+---
+
+### 📅 Routine SEO Maintenance Checklist
+Check these once a week to grow your traffic:
+
+- [ ] **Check Search Console Queries**: Open GSC → *Performance* → *Search results*. See what keywords people typed to find your site.
+- [ ] **Monitor Indexing Status**: Open GSC → *Pages* → Ensure all pages show green **"Indexed"**.
+- [ ] **Inspect New Features**: When adding new features, paste the URL in GSC's top bar and click **"Request Indexing"** to update Google's cache immediately.
+- [ ] **Track Competitor Keywords**: Target emerging search phrases like "Omegle TV free alternative", "random video chat with girls/boys", or "Omegle clone without coins".
+
