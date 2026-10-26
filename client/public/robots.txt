@@ -4,4 +4,4 @@ Allow: /
 Disallow: /api/
 
 # Sitemap location
-Sitemap: https://talktostranger.onrender.com/sitemap.xml
+Sitemap: https://talktostranger-9my8.onrender.com/sitemap.xml

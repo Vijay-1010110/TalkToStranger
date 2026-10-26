@@ -28,7 +28,7 @@ Your site is pre-configured with industry-standard On-Page SEO:
 1. **Title & Meta Description**:
    - **Title**: `Talk to Stranger - Best Omegle Alternative | Free Random Video Chat & Anonymous Call`
    - **Description**: `The #1 free alternative for Omegle. Talk to strangers online instantly with random video chat, anonymous voice calls, and fast text messaging. 100% free with no login required.`
-2. **Canonical URL**: `<link rel="canonical" href="https://talktostranger.onrender.com/" />` (Prevents duplicate content penalties).
+2. **Canonical URL**: `<link rel="canonical" href="https://talktostranger-9my8.onrender.com/" />` (Prevents duplicate content penalties).
 3. **OpenGraph & Twitter Cards**: Generates rich previews with images and descriptions when links are shared on WhatsApp, Twitter, Discord, and Facebook.
 4. **Google Rich Snippet Schema (JSON-LD)**:
    - `WebApplication` schema telling Google it is a free communication app.
@@ -49,19 +49,12 @@ Follow these steps once your Render deployment is live:
 3. Click **Add Property** in the top left.
 4. Choose **URL prefix** and enter:
    ```
-   https://talktostranger.onrender.com/
+   https://talktostranger-9my8.onrender.com/
    ```
 5. Click **Continue**.
 
-### Step 2: Verify Ownership on Google
-Google provides multiple verification options:
-- **Option A (HTML tag - Recommended)**:
-  Google gives you a meta tag like:
-  ```html
-  <meta name="google-site-verification" content="YOUR_UNIQUE_CODE" />
-  ```
-  Give me that code or place it inside `client/index.html` `<head>`, and click **Verify** in Google Search Console!
-- **Option B (HTML file)**: Upload Google's verification `.html` file into `client/public/`.
+### Step 2: Verify Ownership on Google (✅ Done!)
+- Property verified on Google Search Console via HTML verification: `https://talktostranger-9my8.onrender.com/googleb22af8257abd7c68.html`
 
 ### Step 3: Submit Your Sitemap to Google
 1. In Google Search Console, click **Sitemaps** in the left sidebar menu.
@@ -75,7 +68,7 @@ Google provides multiple verification options:
 ### Step 4: Request Instant Indexing
 1. In the top search bar of Google Search Console ("Inspect any URL in..."), paste:
    ```
-   https://talktostranger.onrender.com/
+   https://talktostranger-9my8.onrender.com/
    ```
 2. Press Enter.
 3. Click **"Request Indexing"**. This moves your site to the top of Googlebot's priority queue!

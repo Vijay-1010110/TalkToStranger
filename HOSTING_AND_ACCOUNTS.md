@@ -9,7 +9,7 @@ This file maintains a centralized record of all cloud services, hosting provider
 | Service | Account / Email | Purpose | Plan / Cost | Status | Live URL |
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **GitHub** | `Vijay-1010110` | Source Code & CI/CD | Free ($0) | ✅ Active | [Repo Link](https://github.com/Vijay-1010110/TalkToStranger) |
-| **Render** | `thirdparty597@gmail.com` | Primary Web Service (24/7 HTTPS) | Free ($0) | 🚀 Active / Deploying | `https://talktostranger.onrender.com` |
+| **Render** | `thirdparty597@gmail.com` | Primary Web Service (24/7 HTTPS) | Free ($0) | ✅ Live & Verified | [`talktostranger-9my8.onrender.com`](https://talktostranger-9my8.onrender.com) |
 | **Cloudflare** | Quick Tunnel | Ephemeral local dev link | Free ($0) | ⚠️ Expired when idle | Use Render HTTPS for phones |
 | **Google STUN** | Cluster (`stun.l.google.com:19302`) | P2P NAT Traversal | Free ($0) | ✅ Active | Built-in |
 
@@ -63,7 +63,7 @@ This file maintains a centralized record of all cloud services, hosting provider
    Modern mobile browsers (iOS Safari and Android Chrome) strictly block access to `navigator.mediaDevices.getUserMedia()` unless the site is served over a valid **HTTPS** origin or `localhost`.
 3. **The Solution**:
    Always open the permanent Render production HTTPS URL:
-   `https://talktostranger.onrender.com`
+   `https://talktostranger-9my8.onrender.com`
    This provides full SSL certificates, permanent 24/7 uptime, and camera/mic permissions across mobile phones.
 
 ---
