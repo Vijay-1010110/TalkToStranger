@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" fill="none">
+  <rect width="1200" height="630" fill="#0a0a0a"/>
+  
+  <!-- Subtle Grid Accent -->
+  <defs>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#161616" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" fill="url(#grid)" />
+
+  <!-- Outer Border -->
+  <rect x="40" y="40" width="1120" height="550" rx="16" fill="#111111" stroke="#222222" stroke-width="2"/>
+
+  <!-- Brand Badge -->
+  <rect x="80" y="100" width="120" height="36" rx="6" fill="#1f1f1f" stroke="#333333" stroke-width="1"/>
+  <text x="140" y="123" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="14" font-weight="700" letter-spacing="2" text-anchor="middle">⚡ FREE P2P</text>
+
+  <!-- Title -->
+  <text x="80" y="240" fill="#ffffff" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="76" font-weight="900" letter-spacing="-1">TALK TO STRANGER</text>
+  
+  <!-- Subtitle -->
+  <text x="80" y="320" fill="#aaaaaa" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="32" font-weight="500">Free Anonymous Random Video Chat, Voice Call &amp; Text</text>
+  
+  <!-- Features Bar -->
+  <g transform="translate(80, 420)">
+    <!-- Pill 1 -->
+    <rect x="0" y="0" width="220" height="50" rx="8" fill="#1a1a1a" stroke="#2e2e2e"/>
+    <text x="110" y="32" fill="#e5e5e5" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="18" font-weight="600" text-anchor="middle">🔒 Zero Signup Needed</text>
+    
+    <!-- Pill 2 -->
+    <rect x="240" y="0" width="220" height="50" rx="8" fill="#1a1a1a" stroke="#2e2e2e"/>
+    <text x="350" y="32" fill="#e5e5e5" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="18" font-weight="600" text-anchor="middle">⚡ Instant WebRTC</text>
+
+    <!-- Pill 3 -->
+    <rect x="480" y="0" width="240" height="50" rx="8" fill="#1a1a1a" stroke="#2e2e2e"/>
+    <text x="600" y="32" fill="#e5e5e5" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="18" font-weight="600" text-anchor="middle">🌍 Global Omegle Alt</text>
+  </g>
+</svg>
