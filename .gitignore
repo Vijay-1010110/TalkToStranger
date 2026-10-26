@@ -7,6 +7,3 @@ data/
 *.log
 .env
 .DS_Store
-
-# Production dist
-client/dist/
