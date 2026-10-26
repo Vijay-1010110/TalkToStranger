@@ -9,8 +9,10 @@ import ControlsBar from './components/ControlsBar';
 import ShortcutsModal from './components/ShortcutsModal';
 import AuthModal from './components/AuthModal';
 import PriorityModal from './components/PriorityModal';
+import DeviceSettingsModal from './components/DeviceSettingsModal';
 import WebSharePane from './components/WebSharePane';
 import SponsorCard from './components/SponsorCard';
+import LoadingScreen from './components/LoadingScreen';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { useWebRTC } from './hooks/useWebRTC';
 import { sounds } from './utils/sound';
@@ -32,7 +34,7 @@ const socket = io(typeof window !== 'undefined' ? window.location.origin : 'http
 });
 
 function MainApp() {
-  const { user, isPriority } = useAuth();
+  const { user, isPriority, loading: authLoading } = useAuth();
   const [appState, setAppState] = useState('idle'); // 'idle' | 'searching' | 'matched'
   const [selectedMode, setSelectedMode] = useState('video'); // 'chat' | 'audio' | 'video'
   const [activeMode, setActiveMode] = useState('video');
@@ -41,16 +43,26 @@ function MainApp() {
   const [strangerTyping, setStrangerTyping] = useState(false);
   const [partnerTier, setPartnerTier] = useState('guest');
   const [isSoundMuted, setIsSoundMuted] = useState(false);
+  const [appReady, setAppReady] = useState(false);
 
   // Modals
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isPriorityOpen, setIsPriorityOpen] = useState(false);
+  const [isDeviceSettingsOpen, setIsDeviceSettingsOpen] = useState(false);
 
   // External Web Co-Browse State
   const [isWebShareOpen, setIsWebShareOpen] = useState(false);
   const [sharedWebUrl, setSharedWebUrl] = useState('');
   const [isSharingWeb, setIsSharingWeb] = useState(false);
+
+  // Smooth Loading Screen timeout
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setAppReady(true);
+    }, 700);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Incoming P2P data messages handler
   const handleP2PDataMessage = useCallback((msg) => {
@@ -72,6 +84,12 @@ function MainApp() {
     isLocalSpeaking,
     isRemoteSpeaking,
     connectionState,
+    audioDevices,
+    videoDevices,
+    selectedAudioId,
+    selectedVideoId,
+    facingMode,
+    isHardwareRevoked,
     initLocalMedia,
     startConnection,
     handleSignal,
@@ -80,28 +98,36 @@ function MainApp() {
     cleanupPeerConnection,
     stopAll,
     toggleMute,
-    toggleVideo
+    toggleVideo,
+    switchCamera,
+    switchMic,
+    revokePermissions
   } = useWebRTC({
     socket,
     onDataMessage: handleP2PDataMessage,
     onDataTyping: handleP2PTyping
   });
 
+  // Re-acquire permissions after revoke
+  const handleReacquirePermissions = async () => {
+    await initLocalMedia(selectedMode);
+  };
+
   // Keep local stream active in home view for preview if video mode is selected
   useEffect(() => {
-    if (appState === 'idle') {
+    if (appState === 'idle' && !isHardwareRevoked) {
       if (selectedMode === 'video') {
         initLocalMedia('video');
       } else {
         stopAll();
       }
     }
-  }, [selectedMode, appState, initLocalMedia, stopAll]);
+  }, [selectedMode, appState, isHardwareRevoked, initLocalMedia, stopAll]);
 
   // Socket event listeners
   useEffect(() => {
     socket.on('connect', () => {
-      console.log('[Socket] Connected with id:', socket.id, 'Unique Client:', uniqueClientId);
+      console.log('[Socket] Connected with id:', socket.id);
     });
 
     socket.on('stats-update', (stats) => {
@@ -140,7 +166,6 @@ function MainApp() {
       handleSignal(data);
     });
 
-    // Fallback socket relay chat message
     socket.on('chat-message', (msg) => {
       sounds.playMessage();
       setMessages((prev) => [...prev, { ...msg, p2p: false }]);
@@ -150,7 +175,6 @@ function MainApp() {
       setStrangerTyping(isTyping);
     });
 
-    // External Web Co-Browse event from stranger
     socket.on('web-share', (data) => {
       if (data.active && data.url) {
         setSharedWebUrl(data.url);
@@ -194,7 +218,7 @@ function MainApp() {
 
   // Actions
   const handleStartSearch = async () => {
-    if (selectedMode !== 'chat' && !localStream) {
+    if (selectedMode !== 'chat' && !localStream && !isHardwareRevoked) {
       await initLocalMedia(selectedMode);
     }
     setActiveMode(selectedMode);
@@ -280,7 +304,6 @@ function MainApp() {
     sounds.setMuted(nextMuted);
   };
 
-  // Co-Browse Actions
   const handleShareUrl = (url) => {
     setSharedWebUrl(url);
     setIsSharingWeb(true);
@@ -306,6 +329,8 @@ function MainApp() {
         e.preventDefault();
         if (isWebShareOpen) {
           setIsWebShareOpen(false);
+        } else if (isDeviceSettingsOpen) {
+          setIsDeviceSettingsOpen(false);
         } else if (appState === 'matched') {
           handleNext();
         } else if (appState === 'searching') {
@@ -333,7 +358,12 @@ function MainApp() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [appState, activeMode, isWebShareOpen, handleNext, handleStartSearch, handleLeave, toggleMute, toggleVideo]);
+  }, [appState, activeMode, isWebShareOpen, isDeviceSettingsOpen, handleNext, handleStartSearch, handleLeave, toggleMute, toggleVideo]);
+
+  // Loading Screen
+  if (authLoading || !appReady) {
+    return <LoadingScreen status="Connecting to decentralized P2P network..." />;
+  }
 
   return (
     <div className="flex flex-col h-[100dvh] w-full max-h-[100dvh] bg-[#0a0a0a] text-[#e5e5e5] select-none font-sans overflow-hidden">
@@ -348,7 +378,7 @@ function MainApp() {
         onOpenPriority={() => setIsPriorityOpen(true)}
       />
 
-      {/* Main Content Area - Responsive for Mobile, Desktop, Tablet, & Foldables */}
+      {/* Main Content Area */}
       <main className="flex-1 flex overflow-hidden relative min-h-0">
         
         {/* 1. IDLE SCREEN */}
@@ -362,6 +392,10 @@ function MainApp() {
             isVideoOff={isVideoOff}
             toggleMute={toggleMute}
             toggleVideo={toggleVideo}
+            onSwitchCamera={switchCamera}
+            onOpenDeviceSettings={() => setIsDeviceSettingsOpen(true)}
+            isHardwareRevoked={isHardwareRevoked}
+            onReacquirePermissions={handleReacquirePermissions}
           />
         )}
 
@@ -373,7 +407,7 @@ function MainApp() {
           />
         )}
 
-        {/* 3. MATCHED SCREEN - Ultra-Responsive Layout Engine */}
+        {/* 3. MATCHED SCREEN */}
         {appState === 'matched' && (
           <div className="flex-1 flex flex-col md:flex-row h-full w-full overflow-hidden min-h-0">
             
@@ -383,9 +417,9 @@ function MainApp() {
                 className={`
                   flex flex-col border-[#1f1f1f] min-h-0
                   ${/* Mobile portrait: stacked top 38% */ 'h-[38%] md:h-full w-full border-b md:border-b-0'}
-                  ${/* Tablet & Desktop: side-by-side 55% or 60% */ isWebShareOpen ? 'md:w-2/5' : 'md:w-3/5 lg:w-2/3 md:border-r'}
-                  ${/* Passport/Square Foldables (aspect ratio near 1:1): side by side */ '[aspect-ratio:1/1]:w-1/2 [aspect-ratio:1/1]:h-full [aspect-ratio:1/1]:border-r [aspect-ratio:1/1]:border-b-0'}
-                  ${/* Landscape Phone: side by side 50% */ 'landscape:max-md:w-1/2 landscape:max-md:h-full landscape:max-md:border-r landscape:max-md:border-b-0'}
+                  ${/* Tablet & Desktop: side-by-side */ isWebShareOpen ? 'md:w-2/5' : 'md:w-3/5 lg:w-2/3 md:border-r'}
+                  ${/* Passport/Square Foldables */ '[aspect-ratio:1/1]:w-1/2 [aspect-ratio:1/1]:h-full [aspect-ratio:1/1]:border-r [aspect-ratio:1/1]:border-b-0'}
+                  ${/* Landscape Phone */ 'landscape:max-md:w-1/2 landscape:max-md:h-full landscape:max-md:border-r landscape:max-md:border-b-0'}
                 `}
               >
                 <MediaView
@@ -403,7 +437,7 @@ function MainApp() {
               </div>
             )}
 
-            {/* Middle Optional Web Share Pane (Priority Co-Browse Feature) */}
+            {/* Middle Optional Web Share Pane */}
             {isWebShareOpen && (
               <div className="w-full md:w-2/5 h-1/2 md:h-full flex flex-col border-b md:border-b-0 md:border-r border-[#1f1f1f] min-h-0">
                 <WebSharePane
@@ -452,6 +486,8 @@ function MainApp() {
           isVideoOff={isVideoOff}
           toggleMute={toggleMute}
           toggleVideo={toggleVideo}
+          onSwitchCamera={switchCamera}
+          onOpenDeviceSettings={() => setIsDeviceSettingsOpen(true)}
           isWebShareOpen={isWebShareOpen}
           toggleWebShare={toggleWebShare}
         />
@@ -479,6 +515,22 @@ function MainApp() {
         isOpen={isPriorityOpen}
         onClose={() => setIsPriorityOpen(false)}
         onOpenAuth={() => setIsAuthOpen(true)}
+      />
+
+      <DeviceSettingsModal
+        isOpen={isDeviceSettingsOpen}
+        onClose={() => setIsDeviceSettingsOpen(false)}
+        audioDevices={audioDevices}
+        videoDevices={videoDevices}
+        selectedAudioId={selectedAudioId}
+        selectedVideoId={selectedVideoId}
+        facingMode={facingMode}
+        isHardwareRevoked={isHardwareRevoked}
+        onSwitchCamera={switchCamera}
+        onSwitchMic={switchMic}
+        onRevokePermissions={revokePermissions}
+        onReacquirePermissions={handleReacquirePermissions}
+        mode={appState === 'matched' ? activeMode : selectedMode}
       />
 
     </div>

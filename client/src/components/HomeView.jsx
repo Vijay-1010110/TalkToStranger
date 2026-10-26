@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Video, VideoOff, MessageSquare, Phone, ShieldCheck, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, MessageSquare, Phone, ShieldCheck, HelpCircle, ChevronDown, ChevronUp, RefreshCw, Sliders, PowerOff } from 'lucide-react';
 import SponsorCard from './SponsorCard';
 import { useAuth } from '../context/AuthContext';
 
@@ -11,7 +11,11 @@ export default function HomeView({
   isMuted,
   isVideoOff,
   toggleMute,
-  toggleVideo
+  toggleVideo,
+  onSwitchCamera,
+  onOpenDeviceSettings,
+  isHardwareRevoked,
+  onReacquirePermissions
 }) {
   const { isPriority } = useAuth();
   const previewVideoRef = useRef(null);
@@ -109,7 +113,18 @@ export default function HomeView({
         {selectedMode === 'video' ? (
           <div className="mb-5">
             <div className="relative w-full aspect-video max-h-[35vh] sm:max-h-[220px] bg-black border border-[#222222] rounded overflow-hidden flex items-center justify-center">
-              {localStream && !isVideoOff ? (
+              {isHardwareRevoked ? (
+                <div className="flex flex-col items-center justify-center text-center p-3">
+                  <PowerOff className="w-6 h-6 text-red-400 mb-1" />
+                  <span className="text-xs font-mono text-[#888888]">Hardware Access Released</span>
+                  <button
+                    onClick={onReacquirePermissions}
+                    className="mt-2 px-3 py-1 bg-white text-black text-[11px] font-mono font-semibold rounded"
+                  >
+                    Enable Camera
+                  </button>
+                </div>
+              ) : localStream && !isVideoOff ? (
                 <video
                   ref={previewVideoRef}
                   autoPlay
@@ -124,32 +139,50 @@ export default function HomeView({
               )}
 
               {/* Hardware test toggles */}
-              <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
-                <button
-                  type="button"
-                  onClick={toggleMute}
-                  className={`p-1.5 rounded text-xs border ${
-                    isMuted
-                      ? 'border-red-800 bg-red-950/80 text-red-300'
-                      : 'border-[#333333] bg-[#141414]/90 text-[#cccccc] hover:bg-black'
-                  }`}
-                  title={isMuted ? 'Unmute' : 'Mute'}
-                >
-                  {isMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
-                </button>
-                <button
-                  type="button"
-                  onClick={toggleVideo}
-                  className={`p-1.5 rounded text-xs border ${
-                    isVideoOff
-                      ? 'border-red-800 bg-red-950/80 text-red-300'
-                      : 'border-[#333333] bg-[#141414]/90 text-[#cccccc] hover:bg-black'
-                  }`}
-                  title={isVideoOff ? 'Turn on camera' : 'Turn off camera'}
-                >
-                  {isVideoOff ? <VideoOff className="w-3.5 h-3.5" /> : <Video className="w-3.5 h-3.5" />}
-                </button>
-              </div>
+              {!isHardwareRevoked && (
+                <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={toggleMute}
+                    className={`p-1.5 rounded text-xs border ${
+                      isMuted
+                        ? 'border-red-800 bg-red-950/80 text-red-300'
+                        : 'border-[#333333] bg-[#141414]/90 text-[#cccccc] hover:bg-black'
+                    }`}
+                    title={isMuted ? 'Unmute' : 'Mute'}
+                  >
+                    {isMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={toggleVideo}
+                    className={`p-1.5 rounded text-xs border ${
+                      isVideoOff
+                        ? 'border-red-800 bg-red-950/80 text-red-300'
+                        : 'border-[#333333] bg-[#141414]/90 text-[#cccccc] hover:bg-black'
+                    }`}
+                    title={isVideoOff ? 'Turn on camera' : 'Turn off camera'}
+                  >
+                    {isVideoOff ? <VideoOff className="w-3.5 h-3.5" /> : <Video className="w-3.5 h-3.5" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onSwitchCamera()}
+                    className="p-1.5 rounded text-xs border border-[#333333] bg-[#141414]/90 text-[#cccccc] hover:bg-black"
+                    title="Switch / Flip Camera"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onOpenDeviceSettings}
+                    className="p-1.5 rounded text-xs border border-[#333333] bg-[#141414]/90 text-[#cccccc] hover:bg-black"
+                    title="Device Settings (Switch Mic/Cam or Revoke)"
+                  >
+                    <Sliders className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
             <p className="text-[11px] font-mono text-[#666666] text-center mt-1.5">
               Live camera preview • Broadcast begins only when paired
@@ -164,6 +197,12 @@ export default function HomeView({
             <p className="text-[11px] text-[#777777] mt-0.5 max-w-xs mx-auto">
               Real-time anonymous audio conversation. Low bandwidth with speaking wave indicator.
             </p>
+            <button
+              onClick={onOpenDeviceSettings}
+              className="mt-2 text-[10px] font-mono text-[#888888] hover:text-white underline"
+            >
+              Configure Mic &amp; Device
+            </button>
           </div>
         ) : (
           <div className="mb-5 p-4 rounded bg-[#121212] border border-[#222222] text-center">

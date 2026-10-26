@@ -1,5 +1,5 @@
 import React from 'react';
-import { FastForward, Mic, MicOff, Video, VideoOff, LogOut, Globe } from 'lucide-react';
+import { FastForward, Mic, MicOff, Video, VideoOff, LogOut, Globe, RefreshCw, Sliders } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function ControlsBar({
@@ -10,6 +10,8 @@ export default function ControlsBar({
   isVideoOff,
   toggleMute,
   toggleVideo,
+  onSwitchCamera,
+  onOpenDeviceSettings,
   isWebShareOpen,
   toggleWebShare
 }) {
@@ -47,16 +49,38 @@ export default function ControlsBar({
         )}
 
         {mode === 'video' && (
+          <>
+            <button
+              onClick={toggleVideo}
+              className={`h-9 w-9 sm:h-10 sm:w-10 rounded border flex items-center justify-center text-xs font-mono transition-colors ${
+                isVideoOff
+                  ? 'border-red-900 bg-red-950/70 text-red-400'
+                  : 'border-[#2a2a2a] bg-[#141414] text-[#cccccc] hover:bg-[#202020] hover:text-white'
+              }`}
+              title="Toggle Camera (V)"
+            >
+              {isVideoOff ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
+            </button>
+
+            {/* Quick Switch / Flip Camera Button */}
+            <button
+              onClick={() => onSwitchCamera()}
+              className="h-9 w-9 sm:h-10 sm:w-10 rounded border border-[#2a2a2a] bg-[#141414] text-[#888888] hover:text-white hover:bg-[#202020] flex items-center justify-center text-xs font-mono transition-colors"
+              title="Flip / Switch Camera"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+            </button>
+          </>
+        )}
+
+        {/* Audio / Video Device Settings & Revoke Modal */}
+        {mode !== 'chat' && (
           <button
-            onClick={toggleVideo}
-            className={`h-9 w-9 sm:h-10 sm:w-10 rounded border flex items-center justify-center text-xs font-mono transition-colors ${
-              isVideoOff
-                ? 'border-red-900 bg-red-950/70 text-red-400'
-                : 'border-[#2a2a2a] bg-[#141414] text-[#cccccc] hover:bg-[#202020] hover:text-white'
-            }`}
-            title="Toggle Camera (V)"
+            onClick={onOpenDeviceSettings}
+            className="h-9 w-9 sm:h-10 sm:w-10 rounded border border-[#2a2a2a] bg-[#141414] text-[#888888] hover:text-white hover:bg-[#202020] flex items-center justify-center text-xs font-mono transition-colors"
+            title="Switch Microphone/Camera or Revoke Access"
           >
-            {isVideoOff ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}
+            <Sliders className="w-3.5 h-3.5" />
           </button>
         )}
 

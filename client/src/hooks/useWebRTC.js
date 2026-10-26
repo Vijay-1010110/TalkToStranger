@@ -10,6 +10,14 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
   const [isRemoteSpeaking, setIsRemoteSpeaking] = useState(false);
   const [connectionState, setConnectionState] = useState('new');
 
+  // Device lists & selection
+  const [audioDevices, setAudioDevices] = useState([]);
+  const [videoDevices, setVideoDevices] = useState([]);
+  const [selectedAudioId, setSelectedAudioId] = useState('');
+  const [selectedVideoId, setSelectedVideoId] = useState('');
+  const [facingMode, setFacingMode] = useState('user'); // 'user' or 'environment'
+  const [isHardwareRevoked, setIsHardwareRevoked] = useState(false);
+
   const pcRef = useRef(null);
   const dataChannelRef = useRef(null);
   const iceCandidateQueueRef = useRef([]);
@@ -22,9 +30,24 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
   // Sync state to ref
   localStreamRef.current = localStream;
 
+  // Refresh available devices
+  const updateDeviceList = useCallback(async () => {
+    try {
+      if (!navigator.mediaDevices?.enumerateDevices) return;
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      
+      const audioInputs = devices.filter(d => d.kind === 'audioinput');
+      const videoInputs = devices.filter(d => d.kind === 'videoinput');
+      
+      setAudioDevices(audioInputs);
+      setVideoDevices(videoInputs);
+    } catch (err) {
+      console.warn('[WebRTC] Error enumerating devices:', err);
+    }
+  }, []);
+
   // Initialize or get local media stream based on mode
-  const initLocalMedia = useCallback(async (mode) => {
-    // If text mode, no media needed
+  const initLocalMedia = useCallback(async (mode, customAudioId = null, customVideoId = null, customFacing = null) => {
     if (mode === 'chat') {
       if (localStreamRef.current) {
         localStreamRef.current.getTracks().forEach(t => t.stop());
@@ -34,24 +57,36 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
     }
 
     try {
-      const constraints = {
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        },
-        video: mode === 'video' ? {
+      const audioConstraints = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        ...(customAudioId ? { deviceId: { exact: customAudioId } } : {})
+      };
+
+      let videoConstraints = false;
+      if (mode === 'video') {
+        const targetFacing = customFacing || facingMode;
+        videoConstraints = {
           width: { ideal: 1280, max: 1920 },
           height: { ideal: 720, max: 1080 },
           frameRate: { ideal: 30, max: 30 },
-          facingMode: 'user'
-        } : false
-      };
+          ...(customVideoId ? { deviceId: { exact: customVideoId } } : { facingMode: targetFacing })
+        };
+      }
 
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: audioConstraints,
+        video: videoConstraints
+      });
+
       setLocalStream(stream);
       setIsMuted(false);
       setIsVideoOff(false);
+      setIsHardwareRevoked(false);
+
+      // Populate devices with user-granted labels
+      updateDeviceList();
 
       // Setup audio analysis for speech detection
       setupAudioAnalyser(stream, true);
@@ -59,7 +94,6 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
       return stream;
     } catch (err) {
       console.warn('[WebRTC] Media device error:', err);
-      // Fallback: If video failed, try audio only
       if (mode === 'video') {
         try {
           const audioOnlyStream = await navigator.mediaDevices.getUserMedia({
@@ -75,9 +109,9 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
       }
       return null;
     }
-  }, []);
+  }, [facingMode, updateDeviceList]);
 
-  // Setup Web Audio Analyser to visually detect speaking
+  // Setup Web Audio Analyser
   const setupAudioAnalyser = (stream, isLocal) => {
     try {
       const audioTracks = stream.getAudioTracks();
@@ -102,7 +136,7 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
           sum += dataArray[i];
         }
         const average = sum / bufferLength;
-        const speaking = average > 18; // Threshold
+        const speaking = average > 18;
 
         if (isLocal) {
           setIsLocalSpeaking(speaking);
@@ -114,15 +148,19 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
       };
 
       if (isLocal) {
+        if (localAudioAnalyserRef.current?.audioCtx) {
+          localAudioAnalyserRef.current.audioCtx.close().catch(() => {});
+        }
         localAudioAnalyserRef.current = { audioCtx, analyser };
       } else {
+        if (remoteAudioAnalyserRef.current?.audioCtx) {
+          remoteAudioAnalyserRef.current.audioCtx.close().catch(() => {});
+        }
         remoteAudioAnalyserRef.current = { audioCtx, analyser };
       }
 
       checkVolume();
-    } catch (e) {
-      // Audio context might fail on restricted browser permissions
-    }
+    } catch (e) {}
   };
 
   // Setup DataChannel handlers
@@ -130,17 +168,15 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
     dataChannelRef.current = channel;
 
     channel.onopen = () => {
-      console.log('[WebRTC] DataChannel Open (P2P Low-Latency Active)');
       setIsDataChannelReady(true);
     };
 
     channel.onclose = () => {
-      console.log('[WebRTC] DataChannel Closed');
       setIsDataChannelReady(false);
     };
 
     channel.onerror = (err) => {
-      console.warn('[WebRTC] DataChannel Error:', err);
+      console.warn('[WebRTC] DataChannel error:', err);
       setIsDataChannelReady(false);
     };
 
@@ -159,12 +195,12 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
           onDataTyping(data.isTyping);
         }
       } catch (err) {
-        console.error('[WebRTC] DataChannel parse error:', err);
+        console.error('[WebRTC] Parse error:', err);
       }
     };
   }, [onDataMessage, onDataTyping]);
 
-  // Clean current peer connection
+  // Clean peer connection
   const cleanupPeerConnection = useCallback(() => {
     if (animFrameRef.current) {
       cancelAnimationFrame(animFrameRef.current);
@@ -192,8 +228,112 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
       localStreamRef.current.getTracks().forEach(t => t.stop());
       setLocalStream(null);
     }
+    if (localAudioAnalyserRef.current?.audioCtx) {
+      localAudioAnalyserRef.current.audioCtx.close().catch(() => {});
+      localAudioAnalyserRef.current = null;
+    }
     setIsLocalSpeaking(false);
   }, [cleanupPeerConnection]);
+
+  // HARD REVOKE: Stop all hardware tracks & release OS camera/mic lock completely
+  const revokePermissions = useCallback(() => {
+    stopAll();
+    setIsHardwareRevoked(true);
+    setIsMuted(true);
+    setIsVideoOff(true);
+  }, [stopAll]);
+
+  // Switch Camera (Flip front/back on mobile OR switch specific camera device)
+  const switchCamera = useCallback(async (targetDeviceId = null) => {
+    try {
+      const nextFacing = facingMode === 'user' ? 'environment' : 'user';
+      setFacingMode(nextFacing);
+
+      let videoConstraints;
+      if (targetDeviceId) {
+        videoConstraints = { deviceId: { exact: targetDeviceId } };
+        setSelectedVideoId(targetDeviceId);
+      } else {
+        videoConstraints = { facingMode: nextFacing };
+      }
+
+      const tempStream = await navigator.mediaDevices.getUserMedia({
+        video: videoConstraints
+      });
+
+      const newVideoTrack = tempStream.getVideoTracks()[0];
+      if (!newVideoTrack) return;
+
+      // Stop old video track
+      if (localStreamRef.current) {
+        const oldTrack = localStreamRef.current.getVideoTracks()[0];
+        if (oldTrack) {
+          oldTrack.stop();
+          localStreamRef.current.removeTrack(oldTrack);
+        }
+        localStreamRef.current.addTrack(newVideoTrack);
+        setLocalStream(new MediaStream(localStreamRef.current.getTracks()));
+      }
+
+      // Live PeerConnection Track Replacement (Zero disconnect!)
+      if (pcRef.current) {
+        const sender = pcRef.current.getSenders().find(s => s.track && s.track.kind === 'video');
+        if (sender) {
+          await sender.replaceTrack(newVideoTrack);
+          console.log('[WebRTC] Camera track replaced seamlessly on active P2P call');
+        }
+      }
+
+      setIsVideoOff(false);
+    } catch (err) {
+      console.warn('[WebRTC] Failed to switch camera:', err);
+    }
+  }, [facingMode]);
+
+  // Switch Microphone
+  const switchMic = useCallback(async (targetDeviceId) => {
+    try {
+      if (!targetDeviceId) return;
+      setSelectedAudioId(targetDeviceId);
+
+      const tempStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          deviceId: { exact: targetDeviceId },
+          echoCancellation: true,
+          noiseSuppression: true
+        }
+      });
+
+      const newAudioTrack = tempStream.getAudioTracks()[0];
+      if (!newAudioTrack) return;
+
+      // Stop old audio track
+      if (localStreamRef.current) {
+        const oldTrack = localStreamRef.current.getAudioTracks()[0];
+        if (oldTrack) {
+          oldTrack.stop();
+          localStreamRef.current.removeTrack(oldTrack);
+        }
+        localStreamRef.current.addTrack(newAudioTrack);
+        const updated = new MediaStream(localStreamRef.current.getTracks());
+        setLocalStream(updated);
+        setupAudioAnalyser(updated, true);
+      }
+
+      // Live PeerConnection Audio Track Replacement
+      if (pcRef.current) {
+        const sender = pcRef.current.getSenders().find(s => s.track && s.track.kind === 'audio');
+        if (sender) {
+          await sender.replaceTrack(newAudioTrack);
+          console.log('[WebRTC] Microphone track replaced seamlessly on active P2P call');
+        }
+      }
+
+      setIsMuted(false);
+    } catch (err) {
+      console.warn('[WebRTC] Failed to switch mic:', err);
+    }
+  }, []);
 
   // Create Peer Connection
   const createPeerConnection = useCallback((partnerId, iceServers, mode, stream) => {
@@ -210,7 +350,6 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
 
     pcRef.current = pc;
 
-    // Attach local stream tracks if available
     const activeStream = stream || localStreamRef.current;
     if (activeStream && mode !== 'chat') {
       activeStream.getTracks().forEach((track) => {
@@ -218,16 +357,13 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
       });
     }
 
-    // Remote track listener
     pc.ontrack = (event) => {
-      console.log('[WebRTC] Remote stream track received:', event.track.kind);
       if (event.streams && event.streams[0]) {
         setRemoteStream(event.streams[0]);
         setupAudioAnalyser(event.streams[0], false);
       }
     };
 
-    // ICE Candidate generation
     pc.onicecandidate = (event) => {
       if (event.candidate && partnerIdRef.current) {
         socket.emit('signal', {
@@ -240,17 +376,11 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
       }
     };
 
-    // Connection state changes
     pc.onconnectionstatechange = () => {
-      console.log('[WebRTC] Connection state:', pc.connectionState);
       setConnectionState(pc.connectionState);
       if (onConnectionStateChange) {
         onConnectionStateChange(pc.connectionState);
       }
-    };
-
-    pc.oniceconnectionstatechange = () => {
-      console.log('[WebRTC] ICE state:', pc.iceConnectionState);
     };
 
     return pc;
@@ -265,7 +395,6 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
       if (signal.type === 'offer') {
         await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
 
-        // Process any queued candidates
         while (iceCandidateQueueRef.current.length > 0) {
           const candidate = iceCandidateQueueRef.current.shift();
           await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(e => console.warn(e));
@@ -301,11 +430,10 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
     }
   }, [socket]);
 
-  // Start Call / Connection after Match Found
+  // Start Call after Match Found
   const startConnection = useCallback(async ({ partnerId, isInitiator, iceServers, mode, existingStream }) => {
     let stream = existingStream || localStreamRef.current;
 
-    // If stream not ready for audio/video, request it now
     if (mode !== 'chat' && !stream) {
       stream = await initLocalMedia(mode);
     }
@@ -313,13 +441,9 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
     const pc = createPeerConnection(partnerId, iceServers, mode, stream);
 
     if (isInitiator) {
-      // Create DataChannel on initiator
-      const channel = pc.createDataChannel('stranger-chat', {
-        ordered: true
-      });
+      const channel = pc.createDataChannel('stranger-chat', { ordered: true });
       setupDataChannelEvents(channel);
 
-      // Create and send SDP Offer
       try {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
@@ -335,14 +459,13 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
         console.error('[WebRTC] Offer creation error:', err);
       }
     } else {
-      // Receiver listens for DataChannel
       pc.ondatachannel = (event) => {
         setupDataChannelEvents(event.channel);
       };
     }
   }, [initLocalMedia, createPeerConnection, setupDataChannelEvents, socket]);
 
-  // Send message via DataChannel (fallback returns false if channel not ready)
+  // Send message via DataChannel
   const sendP2PMessage = useCallback((text, id, timestamp) => {
     if (dataChannelRef.current && dataChannelRef.current.readyState === 'open') {
       try {
@@ -354,13 +477,12 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
         }));
         return true;
       } catch (err) {
-        console.warn('[WebRTC] P2P send failed, fallback to socket:', err);
+        console.warn('[WebRTC] P2P send failed:', err);
       }
     }
     return false;
   }, []);
 
-  // Send typing status via DataChannel
   const sendP2PTyping = useCallback((isTyping) => {
     if (dataChannelRef.current && dataChannelRef.current.readyState === 'open') {
       try {
@@ -397,12 +519,14 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
     }
   }, [isVideoOff]);
 
-  // Clean up on unmount
   useEffect(() => {
+    updateDeviceList();
+    navigator.mediaDevices?.addEventListener?.('devicechange', updateDeviceList);
     return () => {
+      navigator.mediaDevices?.removeEventListener?.('devicechange', updateDeviceList);
       stopAll();
     };
-  }, [stopAll]);
+  }, [updateDeviceList, stopAll]);
 
   return {
     localStream,
@@ -413,6 +537,12 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
     isLocalSpeaking,
     isRemoteSpeaking,
     connectionState,
+    audioDevices,
+    videoDevices,
+    selectedAudioId,
+    selectedVideoId,
+    facingMode,
+    isHardwareRevoked,
     initLocalMedia,
     startConnection,
     handleSignal,
@@ -421,6 +551,9 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
     cleanupPeerConnection,
     stopAll,
     toggleMute,
-    toggleVideo
+    toggleVideo,
+    switchCamera,
+    switchMic,
+    revokePermissions
   };
 }
