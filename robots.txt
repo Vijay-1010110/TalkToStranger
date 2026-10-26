@@ -1,0 +1,7 @@
+# Allow all major search engines (Google, Bing, Yahoo, DuckDuckGo, Yandex)
+User-agent: *
+Allow: /
+Disallow: /api/
+
+# Sitemap location
+Sitemap: https://talktostranger.onrender.com/sitemap.xml
