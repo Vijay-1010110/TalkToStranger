@@ -49,7 +49,7 @@ export default function HomeView({
   ];
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-6 sm:py-10 flex flex-col items-center justify-start bg-[#0a0a0a] min-h-0">
+    <div className="flex-1 overflow-y-auto px-4 py-6 sm:py-10 flex flex-col items-center justify-start bg-[#0f172a] min-h-0">
       <div className="w-full max-w-md mx-auto flex flex-col justify-center my-auto">
         
         {/* Header / H1 for SEO */}
@@ -59,69 +59,69 @@ export default function HomeView({
               Talk to Stranger
             </h1>
             {isPriority && (
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white text-black font-bold">
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white text-slate-900 font-bold">
                 PRIORITY PASS
               </span>
             )}
           </div>
-          <p className="text-xs text-[#888888] mt-1 font-sans">
+          <p className="text-xs text-slate-400 mt-1 font-sans">
             Free anonymous random video chat, voice call &amp; text chat. Direct WebRTC peer-to-peer.
           </p>
         </div>
 
         {/* Mode Selector Cards */}
-        <div className="grid grid-cols-3 gap-1.5 p-1 bg-[#141414] border border-[#222222] rounded mb-5">
+        <div className="grid grid-cols-3 gap-1.5 p-1.5 bg-[#1e293b] border border-[#334155] rounded mb-5 shadow-sm">
           <button
             onClick={() => setSelectedMode('chat')}
-            className={`py-3 px-2 flex flex-col items-center justify-center gap-1.5 rounded transition-colors ${
+            className={`py-3 px-2 flex flex-col items-center justify-center gap-1.5 rounded transition-all ${
               selectedMode === 'chat'
-                ? 'bg-[#262626] text-white font-semibold'
-                : 'text-[#888888] hover:text-white'
+                ? 'bg-sky-600 text-white font-bold shadow'
+                : 'text-slate-400 hover:text-white hover:bg-[#334155]'
             }`}
           >
             <MessageSquare className="w-4 h-4" />
             <span className="text-xs font-mono">Chat</span>
-            <span className="text-[10px] text-[#666666] hidden sm:block">Text only</span>
+            <span className="text-[10px] opacity-80 hidden sm:block">Text only</span>
           </button>
 
           <button
             onClick={() => setSelectedMode('audio')}
-            className={`py-3 px-2 flex flex-col items-center justify-center gap-1.5 rounded transition-colors ${
+            className={`py-3 px-2 flex flex-col items-center justify-center gap-1.5 rounded transition-all ${
               selectedMode === 'audio'
-                ? 'bg-[#262626] text-white font-semibold'
-                : 'text-[#888888] hover:text-white'
+                ? 'bg-sky-600 text-white font-bold shadow'
+                : 'text-slate-400 hover:text-white hover:bg-[#334155]'
             }`}
           >
             <Phone className="w-4 h-4" />
             <span className="text-xs font-mono">Voice</span>
-            <span className="text-[10px] text-[#666666] hidden sm:block">Mic audio</span>
+            <span className="text-[10px] opacity-80 hidden sm:block">Mic audio</span>
           </button>
 
           <button
             onClick={() => setSelectedMode('video')}
-            className={`py-3 px-2 flex flex-col items-center justify-center gap-1.5 rounded transition-colors ${
+            className={`py-3 px-2 flex flex-col items-center justify-center gap-1.5 rounded transition-all ${
               selectedMode === 'video'
-                ? 'bg-[#262626] text-white font-semibold'
-                : 'text-[#888888] hover:text-white'
+                ? 'bg-sky-600 text-white font-bold shadow'
+                : 'text-slate-400 hover:text-white hover:bg-[#334155]'
             }`}
           >
             <Video className="w-4 h-4" />
             <span className="text-xs font-mono">Video</span>
-            <span className="text-[10px] text-[#666666] hidden sm:block">Cam &amp; mic</span>
+            <span className="text-[10px] opacity-80 hidden sm:block">Cam &amp; mic</span>
           </button>
         </div>
 
         {/* Preview / Mode Highlights */}
         {selectedMode === 'video' ? (
           <div className="mb-5">
-            <div className="relative w-full aspect-video max-h-[35vh] sm:max-h-[220px] bg-black border border-[#222222] rounded overflow-hidden flex items-center justify-center">
+            <div className="relative w-full aspect-video max-h-[35vh] sm:max-h-[220px] bg-[#0b101c] border border-[#334155] rounded overflow-hidden flex items-center justify-center shadow-inner">
               {isHardwareRevoked ? (
                 <div className="flex flex-col items-center justify-center text-center p-3">
                   <PowerOff className="w-6 h-6 text-red-400 mb-1" />
-                  <span className="text-xs font-mono text-[#888888]">Hardware Access Released</span>
+                  <span className="text-xs font-mono text-slate-400">Hardware Access Released</span>
                   <button
                     onClick={onReacquirePermissions}
-                    className="mt-2 px-3 py-1 bg-white text-black text-[11px] font-mono font-semibold rounded"
+                    className="mt-2 px-3 py-1 bg-white text-slate-900 text-[11px] font-mono font-semibold rounded"
                   >
                     Enable Camera
                   </button>
@@ -135,7 +135,7 @@ export default function HomeView({
                   className="w-full h-full object-cover video-mirror"
                 />
               ) : (
-                <div className="text-xs font-mono text-[#555555]">
+                <div className="text-xs font-mono text-slate-500">
                   Camera inactive
                 </div>
               )}
@@ -148,8 +148,8 @@ export default function HomeView({
                     onClick={toggleMute}
                     className={`p-1.5 rounded text-xs border ${
                       isMuted
-                        ? 'border-red-800 bg-red-950/80 text-red-300'
-                        : 'border-[#333333] bg-[#141414]/90 text-[#cccccc] hover:bg-black'
+                        ? 'border-red-600 bg-red-600/30 text-red-300'
+                        : 'border-[#334155] bg-[#1e293b]/90 text-slate-200 hover:bg-[#334155]'
                     }`}
                     title={isMuted ? 'Unmute' : 'Mute'}
                   >
@@ -160,8 +160,8 @@ export default function HomeView({
                     onClick={toggleVideo}
                     className={`p-1.5 rounded text-xs border ${
                       isVideoOff
-                        ? 'border-red-800 bg-red-950/80 text-red-300'
-                        : 'border-[#333333] bg-[#141414]/90 text-[#cccccc] hover:bg-black'
+                        ? 'border-red-600 bg-red-600/30 text-red-300'
+                        : 'border-[#334155] bg-[#1e293b]/90 text-slate-200 hover:bg-[#334155]'
                     }`}
                     title={isVideoOff ? 'Turn on camera' : 'Turn off camera'}
                   >
@@ -170,7 +170,7 @@ export default function HomeView({
                   <button
                     type="button"
                     onClick={() => onSwitchCamera()}
-                    className="p-1.5 rounded text-xs border border-[#333333] bg-[#141414]/90 text-[#cccccc] hover:bg-black"
+                    className="p-1.5 rounded text-xs border border-[#334155] bg-[#1e293b]/90 text-slate-200 hover:bg-[#334155]"
                     title="Switch / Flip Camera"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
@@ -178,7 +178,7 @@ export default function HomeView({
                   <button
                     type="button"
                     onClick={onOpenDeviceSettings}
-                    className="p-1.5 rounded text-xs border border-[#333333] bg-[#141414]/90 text-[#cccccc] hover:bg-black"
+                    className="p-1.5 rounded text-xs border border-[#334155] bg-[#1e293b]/90 text-slate-200 hover:bg-[#334155]"
                     title="Device Settings (Switch Mic/Cam or Revoke)"
                   >
                     <Sliders className="w-3.5 h-3.5" />
@@ -186,45 +186,45 @@ export default function HomeView({
                 </div>
               )}
             </div>
-            <p className="text-[11px] font-mono text-[#666666] text-center mt-1.5">
+            <p className="text-[11px] font-mono text-slate-400 text-center mt-1.5">
               Live camera preview • Broadcast begins only when paired
             </p>
           </div>
         ) : selectedMode === 'audio' ? (
-          <div className="mb-5 p-4 rounded bg-[#121212] border border-[#222222] text-center">
-            <div className="w-10 h-10 rounded-full bg-[#1c1c1c] border border-[#2c2c2c] mx-auto flex items-center justify-center text-white mb-2">
+          <div className="mb-5 p-4 rounded bg-[#1e293b] border border-[#334155] text-center shadow-sm">
+            <div className="w-10 h-10 rounded-full bg-[#0f172a] border border-[#334155] mx-auto flex items-center justify-center text-sky-400 mb-2">
               <Phone className="w-5 h-5" />
             </div>
             <h2 className="text-xs font-mono font-semibold text-white">Random Voice Call</h2>
-            <p className="text-[11px] text-[#777777] mt-0.5 max-w-xs mx-auto">
+            <p className="text-[11px] text-slate-400 mt-0.5 max-w-xs mx-auto">
               Real-time anonymous audio conversation. Low bandwidth with speaking wave indicator.
             </p>
             <button
               onClick={onOpenDeviceSettings}
-              className="mt-2 text-[10px] font-mono text-[#888888] hover:text-white underline"
+              className="mt-2 text-[10px] font-mono text-sky-400 hover:text-sky-300 underline"
             >
               Configure Mic &amp; Device
             </button>
           </div>
         ) : (
-          <div className="mb-5 p-4 rounded bg-[#121212] border border-[#222222] text-center">
-            <div className="w-10 h-10 rounded-full bg-[#1c1c1c] border border-[#2c2c2c] mx-auto flex items-center justify-center text-white mb-2">
+          <div className="mb-5 p-4 rounded bg-[#1e293b] border border-[#334155] text-center shadow-sm">
+            <div className="w-10 h-10 rounded-full bg-[#0f172a] border border-[#334155] mx-auto flex items-center justify-center text-sky-400 mb-2">
               <MessageSquare className="w-5 h-5" />
             </div>
             <h2 className="text-xs font-mono font-semibold text-white">Anonymous Text Chat</h2>
-            <p className="text-[11px] text-[#777777] mt-0.5 max-w-xs mx-auto">
+            <p className="text-[11px] text-slate-400 mt-0.5 max-w-xs mx-auto">
               Instant messaging via direct WebRTC DataChannel with quick icebreakers.
             </p>
           </div>
         )}
 
         {/* Gender Selection */}
-        <div className="mb-4 p-2.5 bg-[#141414] border border-[#222222] rounded">
+        <div className="mb-4 p-3 bg-[#1e293b] border border-[#334155] rounded shadow-sm">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[11px] font-mono text-[#888888] uppercase tracking-wider">
+            <span className="text-[11px] font-mono text-slate-300 uppercase tracking-wider font-semibold">
               Your Gender
             </span>
-            <span className="text-[10px] font-mono text-[#666666]">
+            <span className="text-[10px] font-mono text-slate-400">
               Shown to your partner
             </span>
           </div>
@@ -232,10 +232,10 @@ export default function HomeView({
             <button
               type="button"
               onClick={() => setGender && setGender('male')}
-              className={`py-2 px-1 rounded flex items-center justify-center gap-1.5 text-xs font-mono transition-colors border ${
+              className={`py-2 px-1 rounded flex items-center justify-center gap-1.5 text-xs font-mono transition-all border ${
                 gender === 'male'
-                  ? 'bg-blue-600/20 border-blue-500 text-blue-400 font-bold'
-                  : 'bg-[#181818] border-[#262626] text-[#888888] hover:text-white hover:border-[#383838]'
+                  ? 'bg-blue-600/30 border-blue-400 text-blue-300 font-bold shadow-sm'
+                  : 'bg-[#0f172a] border-[#334155] text-slate-400 hover:text-white hover:border-[#475569]'
               }`}
             >
               <span>♂</span>
@@ -244,10 +244,10 @@ export default function HomeView({
             <button
               type="button"
               onClick={() => setGender && setGender('female')}
-              className={`py-2 px-1 rounded flex items-center justify-center gap-1.5 text-xs font-mono transition-colors border ${
+              className={`py-2 px-1 rounded flex items-center justify-center gap-1.5 text-xs font-mono transition-all border ${
                 gender === 'female'
-                  ? 'bg-pink-600/20 border-pink-500 text-pink-400 font-bold'
-                  : 'bg-[#181818] border-[#262626] text-[#888888] hover:text-white hover:border-[#383838]'
+                  ? 'bg-pink-600/30 border-pink-400 text-pink-300 font-bold shadow-sm'
+                  : 'bg-[#0f172a] border-[#334155] text-slate-400 hover:text-white hover:border-[#475569]'
               }`}
             >
               <span>♀</span>
@@ -256,10 +256,10 @@ export default function HomeView({
             <button
               type="button"
               onClick={() => setGender && setGender('other')}
-              className={`py-2 px-1 rounded flex items-center justify-center gap-1.5 text-xs font-mono transition-colors border ${
+              className={`py-2 px-1 rounded flex items-center justify-center gap-1.5 text-xs font-mono transition-all border ${
                 gender === 'other'
-                  ? 'bg-emerald-600/20 border-emerald-500 text-emerald-400 font-bold'
-                  : 'bg-[#181818] border-[#262626] text-[#888888] hover:text-white hover:border-[#383838]'
+                  ? 'bg-emerald-600/30 border-emerald-400 text-emerald-300 font-bold shadow-sm'
+                  : 'bg-[#0f172a] border-[#334155] text-slate-400 hover:text-white hover:border-[#475569]'
               }`}
             >
               <span>🧑</span>
@@ -271,15 +271,15 @@ export default function HomeView({
         {/* Start Button */}
         <button
           onClick={onStartSearch}
-          className="w-full py-3.5 px-4 rounded bg-white hover:bg-[#e0e0e0] text-black font-bold text-sm font-mono transition-colors active:scale-[0.99] flex items-center justify-center gap-2 shadow-sm"
+          className="w-full py-3.5 px-4 rounded bg-white hover:bg-slate-100 text-slate-900 font-bold text-sm font-mono transition-all active:scale-[0.99] flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
         >
           <span>START CHATTING NOW</span>
-          <span className="text-xs text-[#666666] font-normal hidden sm:inline">[Space]</span>
+          <span className="text-xs text-slate-500 font-normal hidden sm:inline">[Space]</span>
         </button>
 
         {/* Privacy & Safety Note */}
-        <div className="mt-4 flex items-center justify-center gap-2 text-[11px] font-mono text-[#666666]">
-          <ShieldCheck className="w-3.5 h-3.5 text-[#888888]" />
+        <div className="mt-4 flex items-center justify-center gap-2 text-[11px] font-mono text-slate-400">
+          <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
           <span>Encrypted WebRTC P2P • Zero conversation logs • 100% Free</span>
         </div>
 
@@ -287,11 +287,11 @@ export default function HomeView({
         <SponsorCard variant="card" />
 
         {/* SEO Knowledge & FAQ Toggle (Google Indexable Rich Content) */}
-        <div className="mt-6 pt-4 border-t border-[#1a1a1a]">
+        <div className="mt-6 pt-4 border-t border-[#334155]">
           <button
             type="button"
             onClick={() => setShowFaq(!showFaq)}
-            className="w-full flex items-center justify-between text-xs font-mono text-[#777777] hover:text-white transition-colors py-1"
+            className="w-full flex items-center justify-between text-xs font-mono text-slate-400 hover:text-white transition-colors py-1"
           >
             <span className="flex items-center gap-1.5">
               <HelpCircle className="w-3.5 h-3.5" />
@@ -301,16 +301,16 @@ export default function HomeView({
           </button>
 
           {showFaq && (
-            <div className="mt-3 space-y-3 text-xs text-[#999999] bg-[#111111] border border-[#202020] rounded p-3 font-sans">
+            <div className="mt-3 space-y-3 text-xs text-slate-300 bg-[#1e293b] border border-[#334155] rounded p-3 font-sans shadow-sm">
               <p className="leading-relaxed">
                 <strong className="text-white">Talk to Stranger</strong> is a modern, privacy-first Omegle alternative. It connects you with random strangers across the globe for live video chat, voice calls, or text messaging using direct browser-to-browser WebRTC connections without requiring accounts or downloads.
               </p>
 
-              <div className="space-y-2 pt-2 border-t border-[#1f1f1f]">
+              <div className="space-y-2 pt-2 border-t border-[#334155]">
                 {faqs.map((f, i) => (
                   <div key={i}>
                     <h3 className="font-semibold text-white text-[11px] font-mono">{f.q}</h3>
-                    <p className="text-[11px] text-[#777777] leading-relaxed mt-0.5">{f.a}</p>
+                    <p className="text-[11px] text-slate-400 leading-relaxed mt-0.5">{f.a}</p>
                   </div>
                 ))}
               </div>

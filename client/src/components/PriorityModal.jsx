@@ -52,8 +52,8 @@ export default function PriorityModal({ isOpen, onClose, onOpenAuth }) {
   ];
 
   return (
-    <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4">
-      <div className="bg-[#121212] border border-[#2a2a2a] rounded max-w-sm w-full p-5 shadow-2xl">
+    <div className="fixed inset-0 bg-slate-950/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+      <div className="bg-[#1e293b] border border-[#334155] rounded-lg max-w-sm w-full p-5 shadow-2xl">
         
         {/* Header */}
         <div className="flex items-center justify-between pb-3 border-b border-[#222222] mb-4">

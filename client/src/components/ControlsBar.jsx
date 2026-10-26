@@ -1,5 +1,5 @@
 import React from 'react';
-import { FastForward, Mic, MicOff, Video, VideoOff, LogOut, Globe, RefreshCw, Sliders } from 'lucide-react';
+import { FastForward, Mic, MicOff, Video, VideoOff, Square, Globe, RefreshCw, Sliders, Home } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function ControlsBar({
@@ -18,17 +18,18 @@ export default function ControlsBar({
   const { isPriority } = useAuth();
 
   return (
-    <div className="h-14 sm:h-16 border-t border-[#1f1f1f] bg-[#0a0a0a] px-3 sm:px-4 flex items-center justify-between shrink-0 z-20 pb-[env(safe-area-inset-bottom,0px)]">
+    <div className="h-14 sm:h-16 border-t border-[#334155] bg-[#1e293b] px-3 sm:px-4 flex items-center justify-between shrink-0 z-20 pb-[env(safe-area-inset-bottom,0px)] shadow-lg">
       
       {/* Left Action: Next Stranger */}
       <div className="flex items-center gap-2">
         <button
           onClick={onNext}
-          className="h-9 sm:h-10 px-3 sm:px-4 rounded bg-white hover:bg-[#e0e0e0] text-black font-bold text-xs sm:text-sm flex items-center gap-1.5 transition-colors active:scale-95 font-mono"
+          className="h-9 sm:h-10 px-3.5 sm:px-4 rounded bg-white hover:bg-slate-100 text-slate-900 font-bold text-xs sm:text-sm flex items-center gap-1.5 transition-all active:scale-95 font-mono shadow-sm"
+          title="Skip to next stranger [Esc]"
         >
           <FastForward className="w-3.5 h-3.5 fill-current" />
           <span>Next</span>
-          <span className="text-[10px] text-[#666666] hidden sm:inline">[Esc]</span>
+          <span className="text-[10px] text-slate-500 hidden sm:inline">[Esc]</span>
         </button>
       </div>
 
@@ -39,8 +40,8 @@ export default function ControlsBar({
             onClick={toggleMute}
             className={`h-9 w-9 sm:h-10 sm:w-10 rounded border flex items-center justify-center text-xs font-mono transition-colors ${
               isMuted
-                ? 'border-red-900 bg-red-950/70 text-red-400'
-                : 'border-[#2a2a2a] bg-[#141414] text-[#cccccc] hover:bg-[#202020] hover:text-white'
+                ? 'border-red-600 bg-red-600/20 text-red-400'
+                : 'border-[#334155] bg-[#0f172a] text-slate-200 hover:bg-[#334155] hover:text-white'
             }`}
             title="Toggle Mute (M)"
           >
@@ -54,8 +55,8 @@ export default function ControlsBar({
               onClick={toggleVideo}
               className={`h-9 w-9 sm:h-10 sm:w-10 rounded border flex items-center justify-center text-xs font-mono transition-colors ${
                 isVideoOff
-                  ? 'border-red-900 bg-red-950/70 text-red-400'
-                  : 'border-[#2a2a2a] bg-[#141414] text-[#cccccc] hover:bg-[#202020] hover:text-white'
+                  ? 'border-red-600 bg-red-600/20 text-red-400'
+                  : 'border-[#334155] bg-[#0f172a] text-slate-200 hover:bg-[#334155] hover:text-white'
               }`}
               title="Toggle Camera (V)"
             >
@@ -65,7 +66,7 @@ export default function ControlsBar({
             {/* Quick Switch / Flip Camera Button */}
             <button
               onClick={() => onSwitchCamera()}
-              className="h-9 w-9 sm:h-10 sm:w-10 rounded border border-[#2a2a2a] bg-[#141414] text-[#888888] hover:text-white hover:bg-[#202020] flex items-center justify-center text-xs font-mono transition-colors"
+              className="h-9 w-9 sm:h-10 sm:w-10 rounded border border-[#334155] bg-[#0f172a] text-slate-300 hover:text-white hover:bg-[#334155] flex items-center justify-center text-xs font-mono transition-colors"
               title="Flip / Switch Camera"
             >
               <RefreshCw className="w-3.5 h-3.5" />
@@ -77,7 +78,7 @@ export default function ControlsBar({
         {mode !== 'chat' && (
           <button
             onClick={onOpenDeviceSettings}
-            className="h-9 w-9 sm:h-10 sm:w-10 rounded border border-[#2a2a2a] bg-[#141414] text-[#888888] hover:text-white hover:bg-[#202020] flex items-center justify-center text-xs font-mono transition-colors"
+            className="h-9 w-9 sm:h-10 sm:w-10 rounded border border-[#334155] bg-[#0f172a] text-slate-300 hover:text-white hover:bg-[#334155] flex items-center justify-center text-xs font-mono transition-colors"
             title="Switch Microphone/Camera or Revoke Access"
           >
             <Sliders className="w-3.5 h-3.5" />
@@ -89,8 +90,8 @@ export default function ControlsBar({
           onClick={toggleWebShare}
           className={`h-9 px-2.5 sm:h-10 sm:px-3 rounded border flex items-center gap-1.5 text-xs font-mono transition-colors ${
             isWebShareOpen
-              ? 'border-white bg-[#222222] text-white'
-              : 'border-[#2a2a2a] bg-[#141414] text-[#888888] hover:text-white hover:border-[#444444]'
+              ? 'border-sky-400 bg-sky-950/60 text-sky-200'
+              : 'border-[#334155] bg-[#0f172a] text-slate-300 hover:text-white hover:border-[#475569]'
           }`}
           title="External Web Co-browsing Interface"
         >
@@ -102,14 +103,15 @@ export default function ControlsBar({
         </button>
       </div>
 
-      {/* Right Action: Leave */}
+      {/* Right Action: STOP Button (Direct redirect to Home) */}
       <div>
         <button
           onClick={onLeave}
-          className="h-9 sm:h-10 px-2.5 sm:px-3 rounded border border-[#2a2a2a] bg-[#121212] hover:bg-[#1a1a1a] text-[#888888] hover:text-white text-xs font-mono flex items-center gap-1.5 transition-colors"
+          className="h-9 sm:h-10 px-3 sm:px-4 rounded bg-red-600 hover:bg-red-700 text-white font-bold text-xs sm:text-sm font-mono flex items-center gap-1.5 transition-all active:scale-95 shadow-md shadow-red-950/40"
+          title="Stop call and return directly to Home"
         >
-          <LogOut className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">Leave</span>
+          <Square className="w-3 h-3 fill-current" />
+          <span>STOP</span>
         </button>
       </div>
 

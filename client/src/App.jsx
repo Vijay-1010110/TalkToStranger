@@ -59,6 +59,19 @@ function MainApp() {
     }
   };
 
+  // Synchronized refs to avoid stale closure issues during socket events
+  const appStateRef = useRef(appState);
+  const activeModeRef = useRef(activeMode);
+  const genderRef = useRef(gender);
+  const userRef = useRef(user);
+
+  useEffect(() => {
+    appStateRef.current = appState;
+    activeModeRef.current = activeMode;
+    genderRef.current = gender;
+    userRef.current = user;
+  }, [appState, activeMode, gender, user]);
+
   // Modals
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
@@ -208,14 +221,17 @@ function MainApp() {
       setStrangerTyping(false);
       setIsWebShareOpen(false);
       setSharedWebUrl('');
-      setMessages((prev) => [
-        ...prev,
-        {
-          id: 'sys-leave-' + Date.now(),
-          sender: 'system',
-          text: data.reason || 'Stranger disconnected. Press [Next] or Esc to find someone new.'
-        }
-      ]);
+
+      // Auto start looking for another stranger immediately if not in home/idle state
+      if (appStateRef.current !== 'idle') {
+        setAppState('searching');
+        setMessages([]);
+        socket.emit('find-stranger', {
+          mode: activeModeRef.current,
+          tier: userRef.current?.tier || 'guest',
+          gender: genderRef.current || 'other'
+        });
+      }
     });
 
     return () => {
@@ -383,7 +399,7 @@ function MainApp() {
   }
 
   return (
-    <div className="flex flex-col h-[100dvh] w-full max-h-[100dvh] bg-[#0a0a0a] text-[#e5e5e5] select-none font-sans overflow-hidden">
+    <div className="flex flex-col h-[100dvh] w-full max-h-[100dvh] bg-[#0f172a] text-[#f1f5f9] select-none font-sans overflow-hidden">
       
       {/* Top Navbar */}
       <Navbar
@@ -393,10 +409,12 @@ function MainApp() {
         onOpenShortcuts={() => setIsShortcutsOpen(true)}
         onOpenAuth={() => setIsAuthOpen(true)}
         onOpenPriority={() => setIsPriorityOpen(true)}
+        appState={appState}
+        onGoHome={handleLeave}
       />
 
       {/* Main Content Area */}
-      <main className="flex-1 flex overflow-hidden relative min-h-0">
+      <main className="flex-1 flex overflow-hidden relative min-h-0 bg-[#0f172a]">
         
         {/* 1. IDLE SCREEN */}
         {appState === 'idle' && (
@@ -428,13 +446,13 @@ function MainApp() {
 
         {/* 3. MATCHED SCREEN */}
         {appState === 'matched' && (
-          <div className="flex-1 flex flex-col md:flex-row h-full w-full overflow-hidden min-h-0">
+          <div className="flex-1 flex flex-col md:flex-row h-full w-full overflow-hidden min-h-0 bg-[#0f172a]">
             
             {/* Left Media Area: In video/voice mode */}
             {activeMode !== 'chat' && (
               <div
                 className={`
-                  flex flex-col border-[#1f1f1f] min-h-0
+                  flex flex-col border-[#334155] min-h-0
                   ${/* Mobile portrait: stacked top 38% */ 'h-[38%] md:h-full w-full border-b md:border-b-0'}
                   ${/* Tablet & Desktop: side-by-side */ isWebShareOpen ? 'md:w-2/5' : 'md:w-3/5 lg:w-2/3 md:border-r'}
                   ${/* Passport/Square Foldables */ '[aspect-ratio:1/1]:w-1/2 [aspect-ratio:1/1]:h-full [aspect-ratio:1/1]:border-r [aspect-ratio:1/1]:border-b-0'}
@@ -459,7 +477,7 @@ function MainApp() {
 
             {/* Middle Optional Web Share Pane */}
             {isWebShareOpen && (
-              <div className="w-full md:w-2/5 h-1/2 md:h-full flex flex-col border-b md:border-b-0 md:border-r border-[#1f1f1f] min-h-0">
+              <div className="w-full md:w-2/5 h-1/2 md:h-full flex flex-col border-b md:border-b-0 md:border-r border-[#334155] min-h-0">
                 <WebSharePane
                   activeUrl={sharedWebUrl}
                   isSharing={isSharingWeb}

@@ -38,18 +38,18 @@ export default function SponsorCard({ variant = 'card' }) {
   // Inline subtle chat sponsor
   if (variant === 'inline') {
     return (
-      <div className="px-3 py-1.5 my-1.5 rounded bg-[#111111] border border-[#1f1f1f] flex items-center justify-between text-[11px] font-sans">
+      <div className="px-3 py-1.5 my-1.5 rounded-lg bg-[#1e293b] border border-[#334155] flex items-center justify-between text-[11px] font-sans shadow-sm">
         <div className="flex items-center gap-1.5 overflow-hidden">
-          <span className="text-[9px] font-mono text-[#666666] border border-[#262626] px-1 rounded shrink-0">
+          <span className="text-[9px] font-mono text-sky-400 border border-sky-500/30 px-1 rounded shrink-0">
             {item.sponsorLabel}
           </span>
-          <span className="text-[#999999] truncate">{item.title}</span>
+          <span className="text-slate-300 truncate">{item.title}</span>
         </div>
         <a
           href={item.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[#cccccc] hover:text-white flex items-center gap-1 font-mono text-[10px] ml-2 shrink-0"
+          className="text-white hover:text-sky-300 flex items-center gap-1 font-mono text-[10px] ml-2 shrink-0"
         >
           <span>Visit</span>
           <ExternalLink className="w-2.5 h-2.5" />
@@ -61,12 +61,12 @@ export default function SponsorCard({ variant = 'card' }) {
   // Micro-banner for mobile/foldable bottom
   if (variant === 'banner') {
     return (
-      <div className="w-full px-3 py-1.5 bg-[#0f0f0f] border-t border-[#1a1a1a] flex items-center justify-between text-[11px] shrink-0">
+      <div className="w-full px-3 py-1.5 bg-[#1e293b] border-t border-[#334155] flex items-center justify-between text-[11px] shrink-0">
         <div className="flex items-center gap-2 overflow-hidden">
-          <span className="text-[9px] font-mono text-[#666666] border border-[#262626] px-1 py-0.2 rounded shrink-0">
+          <span className="text-[9px] font-mono text-sky-400 border border-sky-500/30 px-1 py-0.2 rounded shrink-0">
             {item.sponsorLabel}
           </span>
-          <div className="truncate text-[#888888]">
+          <div className="truncate text-slate-300">
             <span className="text-white font-medium mr-1">{item.title}:</span>
             <span className="hidden sm:inline">{item.tagline}</span>
           </div>
@@ -75,7 +75,7 @@ export default function SponsorCard({ variant = 'card' }) {
           href={item.url}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs font-mono text-[#cccccc] hover:text-white flex items-center gap-0.5 ml-2 shrink-0"
+          className="text-xs font-mono text-white hover:text-sky-300 flex items-center gap-0.5 ml-2 shrink-0"
         >
           <ExternalLink className="w-3 h-3" />
         </a>
@@ -85,24 +85,24 @@ export default function SponsorCard({ variant = 'card' }) {
 
   // Default card for HomeView / Sidebar
   return (
-    <div className="w-full p-2.5 rounded bg-[#111111] border border-[#202020] flex items-center justify-between text-xs mt-3">
+    <div className="w-full p-2.5 rounded-lg bg-[#1e293b] border border-[#334155] flex items-center justify-between text-xs mt-3 shadow-sm">
       <div className="overflow-hidden pr-2">
         <div className="flex items-center gap-1.5 mb-0.5">
-          <span className="text-[9px] font-mono text-[#666666] border border-[#2a2a2a] px-1 rounded">
+          <span className="text-[9px] font-mono text-sky-400 border border-sky-500/30 px-1 rounded">
             {item.sponsorLabel}
           </span>
           <span className="font-semibold text-white truncate">{item.title}</span>
         </div>
-        <p className="text-[11px] text-[#777777] truncate">{item.tagline}</p>
+        <p className="text-[11px] text-slate-400 truncate">{item.tagline}</p>
       </div>
       <a
         href={item.url}
         target="_blank"
         rel="noopener noreferrer"
-        className="px-2 py-1 rounded border border-[#2a2a2a] bg-[#161616] hover:bg-[#202020] text-white text-[11px] font-mono flex items-center gap-1 shrink-0 transition-colors"
+        className="px-2 py-1 rounded border border-[#334155] bg-[#0f172a] hover:bg-[#334155] text-white text-[11px] font-mono flex items-center gap-1 shrink-0 transition-colors shadow-sm"
       >
         <span>Open</span>
-        <ExternalLink className="w-3 h-3 text-[#888888]" />
+        <ExternalLink className="w-3 h-3 text-slate-400" />
       </a>
     </div>
   );
