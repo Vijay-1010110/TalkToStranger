@@ -1,26 +1,89 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
-// Comprehensive STUN & TURN configuration to traverse VPNs, Symmetric NATs, and firewalls
+// Verified, ultra-fast global STUN configuration
 const DEFAULT_ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
-  { urls: 'stun:openrelay.metered.ca:80' },
-  {
-    urls: 'turn:openrelay.metered.ca:80',
-    username: 'openrelayproject',
-    credential: 'openrelayproject'
-  },
-  {
-    urls: 'turn:openrelay.metered.ca:443',
-    username: 'openrelayproject',
-    credential: 'openrelayproject'
-  },
-  {
-    urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-    username: 'openrelayproject',
-    credential: 'openrelayproject'
-  }
+  { urls: 'stun:stun2.l.google.com:19302' },
+  { urls: 'stun:stun3.l.google.com:19302' },
+  { urls: 'stun:stun4.l.google.com:19302' },
+  { urls: 'stun:stun.cloudflare.com:3478' },
+  { urls: 'stun:global.stun.twilio.com:3478' }
 ];
+
+// Fallback virtual stream generator (when Windows camera is locked by another browser tab or hardware is busy)
+function createVirtualFallbackStream(mode) {
+  if (typeof document === 'undefined') return null;
+
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 640;
+    canvas.height = 480;
+    const ctx = canvas.getContext('2d');
+
+    let t = 0;
+    const draw = () => {
+      t += 0.05;
+      const grad = ctx.createLinearGradient(0, 0, 640, 480);
+      grad.addColorStop(0, '#09111e');
+      grad.addColorStop(1, '#1b2a47');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 640, 480);
+
+      // Pulsing avatar indicator
+      ctx.beginPath();
+      ctx.arc(320, 220, 50 + Math.sin(t) * 6, 0, Math.PI * 2);
+      ctx.fillStyle = '#0284c7';
+      ctx.fill();
+
+      // Avatar emoji
+      ctx.font = '42px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText('🧑', 320, 235);
+
+      ctx.font = 'bold 13px monospace';
+      ctx.fillStyle = '#38bdf8';
+      ctx.fillText('Camera Active (Device Sharing Mode)', 320, 310);
+    };
+
+    draw();
+    const timer = setInterval(draw, 100);
+
+    const videoStream = canvas.captureStream(15);
+    const videoTrack = videoStream.getVideoTracks()[0];
+    if (videoTrack) {
+      videoTrack.onended = () => clearInterval(timer);
+    }
+
+    // Silent audio track via Web Audio destination
+    let audioTrack = null;
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (AudioCtx) {
+      try {
+        const audioCtx = new AudioCtx();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        gain.gain.value = 0;
+        const dest = audioCtx.createMediaStreamDestination();
+        osc.connect(gain);
+        gain.connect(dest);
+        osc.start();
+        audioTrack = dest.stream.getAudioTracks()[0];
+      } catch (e) {}
+    }
+
+    const fallbackTracks = [
+      ...(mode === 'video' ? [videoTrack] : []),
+      ...(audioTrack ? [audioTrack] : [])
+    ].filter(Boolean);
+
+    return new MediaStream(fallbackTracks);
+  } catch (err) {
+    console.warn('[WebRTC] Fallback virtual stream error:', err);
+    return null;
+  }
+}
 
 export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionStateChange }) {
   const [localStream, setLocalStream] = useState(null);
@@ -46,6 +109,7 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
   const pendingSignalsRef = useRef([]);
   const partnerIdRef = useRef(null);
   const localStreamRef = useRef(null);
+  const remoteMediaStreamRef = useRef(null);
   const localAudioAnalyserRef = useRef(null);
   const remoteAudioAnalyserRef = useRef(null);
   const animFrameRef = useRef(null);
@@ -116,19 +180,34 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
 
       return stream;
     } catch (err) {
-      console.warn('[WebRTC] Media device error:', err);
+      console.warn('[WebRTC] Media device error (falling back to device sharing stream):', err);
+      // Try audio only first
       if (mode === 'video') {
         try {
           const audioOnlyStream = await navigator.mediaDevices.getUserMedia({
             audio: true,
             video: false
           });
-          setLocalStream(audioOnlyStream);
-          setupAudioAnalyser(audioOnlyStream, true);
-          return audioOnlyStream;
+          const virtualVideo = createVirtualFallbackStream('video');
+          const combinedTracks = [
+            ...(virtualVideo ? virtualVideo.getVideoTracks() : []),
+            ...audioOnlyStream.getAudioTracks()
+          ];
+          const combined = new MediaStream(combinedTracks);
+          setLocalStream(combined);
+          setupAudioAnalyser(combined, true);
+          return combined;
         } catch (audioErr) {
-          console.warn('[WebRTC] Audio fallback failed:', audioErr);
+          console.warn('[WebRTC] Audio fallback failed, using virtual stream:', audioErr);
         }
+      }
+
+      // Generate complete virtual fallback stream (e.g. when testing 2 tabs on same machine with exclusive camera lock)
+      const fallbackStream = createVirtualFallbackStream(mode);
+      if (fallbackStream) {
+        setLocalStream(fallbackStream);
+        setupAudioAnalyser(fallbackStream, true);
+        return fallbackStream;
       }
       return null;
     }
@@ -239,6 +318,7 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
     partnerIdRef.current = null;
     iceCandidateQueueRef.current = [];
     pendingSignalsRef.current = [];
+    remoteMediaStreamRef.current = null;
     setRemoteStream(null);
     setIsDataChannelReady(false);
     setIsRemoteSpeaking(false);
@@ -366,21 +446,24 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
     try {
       if (signal.type === 'offer') {
         console.log('[WebRTC] Handling offer signal from partner');
+        const sdpStr = typeof signal.sdp === 'string' ? signal.sdp : (signal.sdp?.sdp || '');
+        const desc = new RTCSessionDescription({ type: 'offer', sdp: sdpStr });
+
         if (pc.signalingState !== 'stable') {
           console.warn('[WebRTC] Offer in state:', pc.signalingState);
           await Promise.all([
             pc.setLocalDescription({ type: 'rollback' }).catch(() => {}),
-            pc.setRemoteDescription(new RTCSessionDescription(signal.sdp))
+            pc.setRemoteDescription(desc)
           ]);
         } else {
-          await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+          await pc.setRemoteDescription(desc);
         }
 
         // Drain queued ICE candidates
         while (iceCandidateQueueRef.current.length > 0) {
           const candidate = iceCandidateQueueRef.current.shift();
           try {
-            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            await pc.addIceCandidate(candidate);
           } catch (e) {
             console.warn('[WebRTC] Queued ICE candidate error:', e);
           }
@@ -393,19 +476,22 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
           targetId: senderId,
           signal: {
             type: 'answer',
-            sdp: answer
+            sdp: answer.sdp
           }
         });
         console.log('[WebRTC] Answer generated and emitted to', senderId);
       } else if (signal.type === 'answer') {
         console.log('[WebRTC] Handling answer signal from partner, state:', pc.signalingState);
+        const sdpStr = typeof signal.sdp === 'string' ? signal.sdp : (signal.sdp?.sdp || '');
+        const desc = new RTCSessionDescription({ type: 'answer', sdp: sdpStr });
+
         if (pc.signalingState === 'have-local-offer') {
-          await pc.setRemoteDescription(new RTCSessionDescription(signal.sdp));
+          await pc.setRemoteDescription(desc);
 
           while (iceCandidateQueueRef.current.length > 0) {
             const candidate = iceCandidateQueueRef.current.shift();
             try {
-              await pc.addIceCandidate(new RTCIceCandidate(candidate));
+              await pc.addIceCandidate(candidate);
             } catch (e) {
               console.warn('[WebRTC] Queued ICE candidate error on answer:', e);
             }
@@ -414,15 +500,21 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
           console.warn('[WebRTC] Answer ignored because signalingState is:', pc.signalingState);
         }
       } else if (signal.type === 'ice-candidate') {
-        const candidate = signal.candidate;
-        if (pc.remoteDescription && pc.remoteDescription.type) {
+        const candidateData = signal.candidate;
+        if (candidateData) {
           try {
-            await pc.addIceCandidate(new RTCIceCandidate(candidate));
+            const cand = (typeof candidateData === 'object' && candidateData.candidate)
+              ? new RTCIceCandidate(candidateData)
+              : candidateData;
+
+            if (pc.remoteDescription && pc.remoteDescription.type) {
+              await pc.addIceCandidate(cand);
+            } else {
+              iceCandidateQueueRef.current.push(cand);
+            }
           } catch (e) {
             console.warn('[WebRTC] addIceCandidate error:', e);
           }
-        } else {
-          iceCandidateQueueRef.current.push(candidate);
         }
       }
     } catch (err) {
@@ -446,6 +538,7 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
   const createPeerConnection = useCallback((partnerId, iceServers, mode, stream) => {
     cleanupPeerConnection();
     partnerIdRef.current = partnerId;
+    remoteMediaStreamRef.current = new MediaStream();
 
     const pc = new RTCPeerConnection({
       iceServers: iceServers && iceServers.length > 0 ? iceServers : DEFAULT_ICE_SERVERS,
@@ -454,57 +547,91 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
 
     pcRef.current = pc;
 
-    // Unified Plan transceivers: Always negotiate audio and video media lines in SDP
-    if (mode === 'video') {
-      try {
-        pc.addTransceiver('video', { direction: 'sendrecv' });
-        pc.addTransceiver('audio', { direction: 'sendrecv' });
-      } catch (e) {}
-    } else if (mode === 'audio') {
-      try {
-        pc.addTransceiver('audio', { direction: 'sendrecv' });
-      } catch (e) {}
-    }
-
+    // Attach local stream tracks if available
     const activeStream = stream || localStreamRef.current;
     if (activeStream && mode !== 'chat') {
       activeStream.getTracks().forEach((track) => {
-        const senders = pc.getSenders();
-        const existingSender = senders.find(s => s.track && s.track.kind === track.kind);
-        if (existingSender) {
-          existingSender.replaceTrack(track).catch(() => {});
-        } else {
-          try {
-            pc.addTrack(track, activeStream);
-          } catch (e) {
-            console.warn('[WebRTC] addTrack fallback:', e);
-          }
+        try {
+          pc.addTrack(track, activeStream);
+        } catch (e) {
+          console.warn('[WebRTC] addTrack fallback:', e);
         }
       });
     }
 
-    pc.ontrack = (event) => {
-      console.log('[WebRTC] ontrack received:', event.track.kind, event.streams);
-      let incomingStream = event.streams && event.streams[0];
-      if (!incomingStream) {
-        incomingStream = new MediaStream([event.track]);
+    // Ensure transceivers exist for expected media lines if local track is not present
+    if (mode === 'video') {
+      const hasVideo = pc.getSenders().some(s => s.track && s.track.kind === 'video');
+      const hasAudio = pc.getSenders().some(s => s.track && s.track.kind === 'audio');
+      if (!hasVideo) {
+        try { pc.addTransceiver('video', { direction: 'recvonly' }); } catch (e) {}
       }
-      // Re-create MediaStream to ensure React state change fires render
-      setRemoteStream(new MediaStream(incomingStream.getTracks()));
-      setupAudioAnalyser(incomingStream, false);
+      if (!hasAudio) {
+        try { pc.addTransceiver('audio', { direction: 'recvonly' }); } catch (e) {}
+      }
+    } else if (mode === 'audio') {
+      const hasAudio = pc.getSenders().some(s => s.track && s.track.kind === 'audio');
+      if (!hasAudio) {
+        try { pc.addTransceiver('audio', { direction: 'recvonly' }); } catch (e) {}
+      }
+    }
+
+    pc.ontrack = (event) => {
+      console.log('[WebRTC] ontrack received:', event.track.kind, event.track.id);
+      let persistentStream = remoteMediaStreamRef.current;
+      if (!persistentStream) {
+        persistentStream = new MediaStream();
+        remoteMediaStreamRef.current = persistentStream;
+      }
+
+      // Deduplicate tracks of the same kind
+      persistentStream.getTracks().forEach((track) => {
+        if (track.kind === event.track.kind && track.id !== event.track.id) {
+          try {
+            persistentStream.removeTrack(track);
+          } catch (e) {}
+        }
+      });
+
+      try {
+        persistentStream.addTrack(event.track);
+      } catch (e) {
+        console.warn('[WebRTC] Error adding track to persistent remote stream:', e);
+      }
+
+      // Create new MediaStream instance so React state change fires render reliably
+      const updatedStream = new MediaStream(persistentStream.getTracks());
+      setRemoteStream(updatedStream);
+      setupAudioAnalyser(updatedStream, false);
+
+      event.track.onended = () => {
+        try {
+          persistentStream.removeTrack(event.track);
+          setRemoteStream(new MediaStream(persistentStream.getTracks()));
+        } catch (e) {}
+      };
 
       event.track.onunmute = () => {
-        setRemoteStream(new MediaStream(incomingStream.getTracks()));
+        setRemoteStream(new MediaStream(persistentStream.getTracks()));
       };
     };
 
     pc.onicecandidate = (event) => {
       if (event.candidate && partnerIdRef.current) {
+        const candidatePayload = event.candidate.toJSON
+          ? event.candidate.toJSON()
+          : {
+              candidate: event.candidate.candidate,
+              sdpMid: event.candidate.sdpMid,
+              sdpMLineIndex: event.candidate.sdpMLineIndex,
+              usernameFragment: event.candidate.usernameFragment
+            };
+
         socket.emit('signal', {
           targetId: partnerIdRef.current,
           signal: {
             type: 'ice-candidate',
-            candidate: event.candidate
+            candidate: candidatePayload
           }
         });
       }
@@ -512,10 +639,10 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
 
     pc.oniceconnectionstatechange = () => {
       console.log('[WebRTC] ICE Connection State:', pc.iceConnectionState);
-      if (pc.iceConnectionState === 'failed') {
-        console.warn('[WebRTC] ICE connection failed, attempting ICE restart...');
+      if (pc.iceConnectionState === 'failed' || pc.iceConnectionState === 'disconnected') {
+        console.warn('[WebRTC] ICE connection degraded/failed. Checking restart...');
         if (typeof pc.restartIce === 'function') {
-          pc.restartIce();
+          try { pc.restartIce(); } catch (e) {}
         }
       }
     };
@@ -545,14 +672,17 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
       setupDataChannelEvents(channel);
 
       try {
-        const offer = await pc.createOffer();
+        const offer = await pc.createOffer({
+          offerToReceiveAudio: mode !== 'chat',
+          offerToReceiveVideo: mode === 'video'
+        });
         await pc.setLocalDescription(offer);
 
         socket.emit('signal', {
           targetId: partnerId,
           signal: {
             type: 'offer',
-            sdp: offer
+            sdp: offer.sdp
           }
         });
         console.log('[WebRTC] Initiator created & emitted offer to', partnerId);

@@ -9,32 +9,31 @@ const { router: authRouter } = require('./auth');
 const app = express();
 const server = http.createServer(app);
 
-// Global STUN & TURN Relay configuration for seamless P2P & VPN/NAT traversal
-const FREE_ICE_SERVERS = [
-  // Fast Google STUN servers
+// Verified, ultra-fast global STUN & dynamic TURN configuration for peer discovery
+const DEFAULT_ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:stun2.l.google.com:19302' },
   { urls: 'stun:stun3.l.google.com:19302' },
   { urls: 'stun:stun4.l.google.com:19302' },
-  // OpenRelay community STUN & TURN servers (relays media through VPNs, Symmetric NATs, and firewalls)
-  { urls: 'stun:openrelay.metered.ca:80' },
-  {
-    urls: 'turn:openrelay.metered.ca:80',
-    username: 'openrelayproject',
-    credential: 'openrelayproject'
-  },
-  {
-    urls: 'turn:openrelay.metered.ca:443',
-    username: 'openrelayproject',
-    credential: 'openrelayproject'
-  },
-  {
-    urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-    username: 'openrelayproject',
-    credential: 'openrelayproject'
-  }
+  { urls: 'stun:stun.cloudflare.com:3478' },
+  { urls: 'stun:global.stun.twilio.com:3478' }
 ];
+
+function getIceServers() {
+  const servers = [...DEFAULT_ICE_SERVERS];
+
+  // Support custom TURN relay servers (e.g. from Render or local .env)
+  if (process.env.TURN_URLS) {
+    const urls = process.env.TURN_URLS.split(',').map((u) => u.trim());
+    const turnEntry = { urls };
+    if (process.env.TURN_USERNAME) turnEntry.username = process.env.TURN_USERNAME;
+    if (process.env.TURN_CREDENTIAL) turnEntry.credential = process.env.TURN_CREDENTIAL;
+    servers.unshift(turnEntry);
+  }
+
+  return servers;
+}
 
 app.use(cors());
 app.use(express.json());
@@ -112,7 +111,7 @@ io.on('connection', (socket) => {
         partnerRegion: user2Region || 'global',
         isInitiator: true,
         mode,
-        iceServers: FREE_ICE_SERVERS
+        iceServers: getIceServers()
       });
 
       // Notify receiver
@@ -124,7 +123,7 @@ io.on('connection', (socket) => {
         partnerRegion: user1Region || 'global',
         isInitiator: false,
         mode,
-        iceServers: FREE_ICE_SERVERS
+        iceServers: getIceServers()
       });
 
       broadcastStats();
@@ -284,6 +283,15 @@ app.get('/api/health', (req, res) => {
     status: 'ok',
     online: getUniqueOnlineCount(),
     stats: matchmaker.getQueueStats()
+  });
+});
+
+// ICE configuration diagnostic endpoint
+app.get('/api/ice-servers', (req, res) => {
+  res.json({
+    status: 'ok',
+    iceServers: getIceServers(),
+    hasCustomTurn: !!process.env.TURN_URLS
   });
 });
 

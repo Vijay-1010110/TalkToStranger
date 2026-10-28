@@ -123,26 +123,26 @@ export default function TesterPage() {
     const candidatesList = [];
 
     try {
-      const pc = new RTCPeerConnection({
-        iceServers: [
-          { urls: 'stun:stun.l.google.com:19302' },
-          { urls: 'stun:openrelay.metered.ca:80' },
-          {
-            urls: 'turn:openrelay.metered.ca:80',
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
-          },
-          {
-            urls: 'turn:openrelay.metered.ca:443',
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
-          },
-          {
-            urls: 'turn:openrelay.metered.ca:443?transport=tcp',
-            username: 'openrelayproject',
-            credential: 'openrelayproject'
+      // Fetch active ICE servers directly from backend diagnostic endpoint
+      let activeIceServers = [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+        { urls: 'stun:stun.cloudflare.com:3478' },
+        { urls: 'stun:global.stun.twilio.com:3478' }
+      ];
+
+      try {
+        const iceRes = await fetch('/api/ice-servers');
+        if (iceRes.ok) {
+          const iceData = await iceRes.json();
+          if (iceData.iceServers?.length) {
+            activeIceServers = iceData.iceServers;
           }
-        ]
+        }
+      } catch (e) {}
+
+      const pc = new RTCPeerConnection({
+        iceServers: activeIceServers
       });
 
       // Data channel forces candidate gathering
@@ -647,16 +647,16 @@ export default function TesterPage() {
               <span className="text-white">Adsterra Anti-AdBlock (bicea.org)</span>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">Active TURN Relays:</span>
-              <span className="text-emerald-400">openrelay.metered.ca:443 (TCP/UDP)</span>
+              <span className="text-slate-400">Active ICE Discovery:</span>
+              <span className="text-emerald-400">Google, Cloudflare &amp; Twilio STUN</span>
             </div>
           </div>
 
           <div className="pt-2">
             <button
               onClick={() => {
-                localStorage.clear();
-                sessionStorage.clear();
+                try { localStorage.clear(); } catch(e){}
+                try { sessionStorage.clear(); } catch(e){}
                 window.location.reload();
               }}
               className="w-full py-1.5 rounded bg-[#0f172a] hover:bg-slate-800 border border-[#334155] text-slate-300 hover:text-white text-xs font-mono transition-colors"

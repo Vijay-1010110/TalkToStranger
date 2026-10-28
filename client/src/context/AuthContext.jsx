@@ -1,50 +1,90 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { safeStorage } from '../utils/safeStorage';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(() => localStorage.getItem('stranger_token') || null);
+  // Pre-seed an anonymous guest so the app can render instantly with zero delay
+  const [user, setUser] = useState(() => ({
+    id: 'guest_' + Math.random().toString(36).substring(2, 9),
+    username: 'Guest',
+    tier: 'guest',
+    isGuest: true
+  }));
+  const [token, setToken] = useState(() => safeStorage.getItem('stranger_token') || null);
   const [loading, setLoading] = useState(true);
 
-  // Load user profile on mount
+  // Load or validate user profile on mount
   useEffect(() => {
-    async function loadUser() {
-      if (token) {
-        try {
-          const res = await fetch('/api/auth/me', {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          if (res.ok) {
-            const data = await res.json();
-            setUser(data.user);
-            setLoading(false);
-            return;
-          }
-        } catch (e) {
-          console.warn('[Auth] Token validation failed:', e);
-        }
-      }
+    let isMounted = true;
 
-      // If no valid user, initialize anonymous guest session
-      await initGuest();
-      setLoading(false);
+    // Hard safety timeout: NEVER hold the loading screen for more than 1000ms
+    // under any circumstance (cold start, slow mobile 3G/4G network, or packet loss)
+    const safetyTimer = setTimeout(() => {
+      if (isMounted) setLoading(false);
+    }, 1000);
+
+    async function loadUser() {
+      try {
+        const storedToken = safeStorage.getItem('stranger_token');
+        if (storedToken) {
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2500);
+            const res = await fetch('/api/auth/me', {
+              headers: { Authorization: `Bearer ${storedToken}` },
+              signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+            if (res.ok) {
+              const data = await res.json();
+              if (isMounted && data.user) {
+                setUser(data.user);
+                setToken(storedToken);
+                setLoading(false);
+                return;
+              }
+            }
+          } catch (e) {
+            console.warn('[Auth] Token validation timed out or failed:', e);
+          }
+        }
+
+        // Initialize guest with a fast timeout so it never hangs
+        await initGuest();
+      } catch (err) {
+        console.warn('[Auth] loadUser error:', err);
+      } finally {
+        if (isMounted) setLoading(false);
+      }
     }
 
     loadUser();
-  }, [token]);
+
+    return () => {
+      isMounted = false;
+      clearTimeout(safetyTimer);
+    };
+  }, []);
 
   const initGuest = async () => {
     try {
-      const res = await fetch('/api/auth/guest', { method: 'POST' });
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
+      const res = await fetch('/api/auth/guest', {
+        method: 'POST',
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
       const data = await res.json();
-      if (data.token) {
-        localStorage.setItem('stranger_token', data.token);
+      if (data.token && data.user) {
+        safeStorage.setItem('stranger_token', data.token);
         setToken(data.token);
         setUser(data.user);
+        return;
       }
     } catch (e) {
-      console.error('[Auth] Failed to initialize guest:', e);
+      console.warn('[Auth] Guest fetch failed or timed out; running with local anonymous session:', e);
     }
   };
 
@@ -60,7 +100,7 @@ export function AuthProvider({ children }) {
       throw new Error(data.error || 'Login failed');
     }
 
-    localStorage.setItem('stranger_token', data.token);
+    safeStorage.setItem('stranger_token', data.token);
     setToken(data.token);
     setUser(data.user);
     return data.user;
@@ -78,16 +118,21 @@ export function AuthProvider({ children }) {
       throw new Error(data.error || 'Registration failed');
     }
 
-    localStorage.setItem('stranger_token', data.token);
+    safeStorage.setItem('stranger_token', data.token);
     setToken(data.token);
     setUser(data.user);
     return data.user;
   };
 
   const logout = async () => {
-    localStorage.removeItem('stranger_token');
+    safeStorage.removeItem('stranger_token');
     setToken(null);
-    setUser(null);
+    setUser({
+      id: 'guest_' + Math.random().toString(36).substring(2, 9),
+      username: 'Guest',
+      tier: 'guest',
+      isGuest: true
+    });
     await initGuest();
   };
 
@@ -106,7 +151,7 @@ export function AuthProvider({ children }) {
       throw new Error(data.error || 'Failed to activate Priority Pass');
     }
 
-    localStorage.setItem('stranger_token', data.token);
+    safeStorage.setItem('stranger_token', data.token);
     setToken(data.token);
     setUser(data.user);
     return data.user;

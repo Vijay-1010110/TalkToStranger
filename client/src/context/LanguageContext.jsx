@@ -15,7 +15,9 @@ export function LanguageProvider({ children }) {
     if (TRANSLATIONS[langCode]) {
       setLanguageState(langCode);
       if (typeof window !== 'undefined') {
-        localStorage.setItem('stranger_user_lang', langCode);
+        try {
+          localStorage.setItem('stranger_user_lang', langCode);
+        } catch (e) {}
       }
     }
   };

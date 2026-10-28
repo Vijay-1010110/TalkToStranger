@@ -475,7 +475,10 @@ export const TRANSLATIONS = {
 export function detectInitialLanguage() {
   if (typeof window === 'undefined') return 'en';
 
-  const saved = localStorage.getItem('stranger_user_lang');
+  let saved = null;
+  try {
+    saved = localStorage.getItem('stranger_user_lang');
+  } catch (e) {}
   if (saved && TRANSLATIONS[saved]) return saved;
 
   const browserLang = (navigator.language || navigator.userLanguage || 'en').toLowerCase();

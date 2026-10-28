@@ -1,5 +1,6 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Mic, MicOff, VideoOff, Wifi, Columns, Rows, Square } from 'lucide-react';
+import { Mic, MicOff, VideoOff, Wifi, Columns, Rows, Square, Volume2 } from 'lucide-react';
+import { safeStorage } from '../utils/safeStorage';
 
 export default function MediaView({
   mode,
@@ -17,22 +18,18 @@ export default function MediaView({
 }) {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
+  const [isAutoplayBlocked, setIsAutoplayBlocked] = useState(false);
   const [objectFit, setObjectFit] = useState('contain'); // 'contain' for zero crop or 'cover' for full bleed
   const [canvasLayout, setCanvasLayout] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('stranger_video_layout');
-      if (saved === 'split') return 'vertical';
-      return saved || 'vertical';
-    }
-    return 'vertical';
+    const saved = safeStorage.getItem('stranger_video_layout');
+    if (saved === 'split') return 'vertical';
+    return saved || 'vertical';
   }); // 'vertical' (stacked top/bottom) | 'horizontal' (side-by-side) | 'pip' (normal: stranger large, self small)
 
   // Switch layout mode
   const handleLayoutChange = (nextLayout) => {
     setCanvasLayout(nextLayout);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('stranger_video_layout', nextLayout);
-    }
+    safeStorage.setItem('stranger_video_layout', nextLayout);
   };
 
   // Sync local stream
@@ -42,18 +39,42 @@ export default function MediaView({
     }
   }, [localStream, canvasLayout]);
 
-  // Sync remote stream & ensure play() is called to overcome browser autoplay blocks
+  // Sync remote stream & handle browser autoplay restrictions gracefully
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream;
       const playPromise = remoteVideoRef.current.play();
       if (playPromise !== undefined) {
-        playPromise.catch((err) => {
-          console.warn('[MediaView] Remote media autoplay paused by browser policy:', err);
-        });
+        playPromise
+          .then(() => {
+            setIsAutoplayBlocked(false);
+          })
+          .catch((err) => {
+            console.warn('[MediaView] Remote media autoplay paused by browser policy:', err);
+            // Automatic recovery: mute remote element so video frames flow immediately
+            if (remoteVideoRef.current) {
+              remoteVideoRef.current.muted = true;
+              remoteVideoRef.current
+                .play()
+                .then(() => {
+                  setIsAutoplayBlocked(true);
+                })
+                .catch(() => {});
+            }
+          });
       }
     }
   }, [remoteStream, canvasLayout]);
+
+  // Manual unmute handler for user gesture
+  const handleUnmuteStranger = (e) => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    if (remoteVideoRef.current) {
+      remoteVideoRef.current.muted = false;
+      remoteVideoRef.current.play().catch(() => {});
+      setIsAutoplayBlocked(false);
+    }
+  };
 
   // Gender indicator helper
   const renderGenderIcon = (gender) => {
@@ -94,6 +115,16 @@ export default function MediaView({
             </div>
             {/* Hidden audio element for remote stream */}
             <audio ref={remoteVideoRef} autoPlay playsInline />
+            {isAutoplayBlocked && (
+              <button
+                type="button"
+                onClick={handleUnmuteStranger}
+                className="mt-2 px-3 py-1 rounded-full bg-sky-500 hover:bg-sky-400 text-white font-mono text-[10px] font-bold flex items-center gap-1 shadow animate-pulse cursor-pointer"
+              >
+                <Volume2 className="w-3 h-3" />
+                <span>Tap to Play Audio</span>
+              </button>
+            )}
           </div>
 
           {/* You Card */}
@@ -148,6 +179,18 @@ export default function MediaView({
           <span className="text-[8px] bg-white text-slate-900 px-1 rounded font-bold ml-0.5">VERIFIED</span>
         )}
       </div>
+
+      {/* Autoplay Unmute Overlay */}
+      {isAutoplayBlocked && (
+        <button
+          type="button"
+          onClick={handleUnmuteStranger}
+          className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 px-3.5 py-1.5 rounded-full bg-sky-500 hover:bg-sky-400 text-white font-mono text-[11px] font-bold shadow-2xl flex items-center gap-1.5 animate-bounce cursor-pointer border border-sky-300 pointer-events-auto"
+        >
+          <Volume2 className="w-3.5 h-3.5" />
+          <span>Click to Unmute Stranger</span>
+        </button>
+      )}
     </div>
   );
 
@@ -290,6 +333,18 @@ export default function MediaView({
               <span className="text-[8px] bg-white text-slate-900 px-1 rounded font-bold ml-0.5">VERIFIED</span>
             )}
           </div>
+
+          {/* Autoplay Unmute Overlay */}
+          {isAutoplayBlocked && (
+            <button
+              type="button"
+              onClick={handleUnmuteStranger}
+              className="absolute bottom-4 left-1/2 -translate-x-1/2 z-30 px-3.5 py-1.5 rounded-full bg-sky-500 hover:bg-sky-400 text-white font-mono text-[11px] font-bold shadow-2xl flex items-center gap-1.5 animate-bounce cursor-pointer border border-sky-300 pointer-events-auto"
+            >
+              <Volume2 className="w-3.5 h-3.5" />
+              <span>Click to Unmute Stranger</span>
+            </button>
+          )}
 
           {/* Floating Self Video (Picture-in-Picture) */}
           <div

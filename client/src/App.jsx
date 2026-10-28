@@ -20,16 +20,14 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { useWebRTC } from './hooks/useWebRTC';
 import { sounds } from './utils/sound';
 import { analytics } from './utils/analytics';
+import { safeStorage } from './utils/safeStorage';
 import TesterPage from './components/TesterPage';
 
 // Persistent Unique Device/Browser Client ID
-let uniqueClientId = '';
-if (typeof window !== 'undefined') {
-  uniqueClientId = localStorage.getItem('stranger_unique_client_id');
-  if (!uniqueClientId) {
-    uniqueClientId = 'cid_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
-    localStorage.setItem('stranger_unique_client_id', uniqueClientId);
-  }
+let uniqueClientId = safeStorage.getItem('stranger_unique_client_id');
+if (!uniqueClientId) {
+  uniqueClientId = 'cid_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
+  safeStorage.setItem('stranger_unique_client_id', uniqueClientId);
 }
 
 const socket = io(typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000', {
@@ -48,40 +46,22 @@ function MainApp() {
   const [messages, setMessages] = useState([]);
   const [strangerTyping, setStrangerTyping] = useState(false);
   const [partnerTier, setPartnerTier] = useState('guest');
-  const [gender, setGender] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('stranger_user_gender') || 'male';
-    }
-    return 'male';
-  });
+  const [gender, setGender] = useState(() => safeStorage.getItem('stranger_user_gender') || 'male');
   const [partnerGender, setPartnerGender] = useState('other');
-  const [region, setRegion] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('stranger_user_region') || 'global';
-    }
-    return 'global';
-  });
+  const [region, setRegion] = useState(() => safeStorage.getItem('stranger_user_region') || 'global');
   const [partnerRegion, setPartnerRegion] = useState('global');
-  const [isSoundMuted, setIsSoundMuted] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('stranger_sound_muted') === 'true';
-    }
-    return false;
-  });
+  const [isSoundMuted, setIsSoundMuted] = useState(() => safeStorage.getItem('stranger_sound_muted') === 'true');
   const [appReady, setAppReady] = useState(false);
+  const [forceReady, setForceReady] = useState(false);
 
   const handleSetGender = (val) => {
     setGender(val);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('stranger_user_gender', val);
-    }
+    safeStorage.setItem('stranger_user_gender', val);
   };
 
   const handleSetRegion = (val) => {
     setRegion(val);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem('stranger_user_region', val);
-    }
+    safeStorage.setItem('stranger_user_region', val);
   };
 
   // Synchronized refs to avoid stale closure issues during socket events
@@ -117,11 +97,12 @@ function MainApp() {
   const [sharedWebUrl, setSharedWebUrl] = useState('');
   const [isSharingWeb, setIsSharingWeb] = useState(false);
 
-  // Smooth Loading Screen timeout
+  // Fast Loading Screen auto-dismiss (600ms max)
   useEffect(() => {
     const timer = setTimeout(() => {
       setAppReady(true);
-    }, 700);
+      setForceReady(true);
+    }, 600);
     return () => clearTimeout(timer);
   }, []);
 
@@ -433,9 +414,9 @@ function MainApp() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [appState, activeMode, isWebShareOpen, isDeviceSettingsOpen, handleNext, handleStartSearch, handleLeave, toggleMute, toggleVideo]);
 
-  // Loading Screen
-  if (authLoading || !appReady) {
-    return <LoadingScreen status="Connecting to decentralized P2P network..." />;
+  // Loading Screen (strictly dismissed after 600ms or on user gesture)
+  if (!forceReady && (authLoading || !appReady)) {
+    return <LoadingScreen status="Connecting to decentralized P2P network..." onSkip={() => setForceReady(true)} />;
   }
 
   return (

@@ -8,7 +8,11 @@ class SoundEffects {
     this.ctx = null;
     this.muted = false;
     if (typeof window !== 'undefined') {
-      this.muted = localStorage.getItem('stranger_sound_muted') === 'true';
+      try {
+        this.muted = localStorage.getItem('stranger_sound_muted') === 'true';
+      } catch (e) {
+        this.muted = false;
+      }
     }
   }
 
@@ -27,7 +31,9 @@ class SoundEffects {
   setMuted(muted) {
     this.muted = muted;
     if (typeof window !== 'undefined') {
-      localStorage.setItem('stranger_sound_muted', muted ? 'true' : 'false');
+      try {
+        localStorage.setItem('stranger_sound_muted', muted ? 'true' : 'false');
+      } catch (e) {}
     }
   }
 
