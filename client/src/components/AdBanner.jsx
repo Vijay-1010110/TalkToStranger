@@ -2,10 +2,11 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { AD_CONFIG } from '../config/ads';
+import { checkIsAdBlockActive } from '../utils/adBlockDetector';
 
 export default function AdBanner({ variant = 'card', className = '' }) {
   const { isPriority } = useAuth();
-  const [adBlocked, setAdBlocked] = useState(false);
+  const [adBlocked, setAdBlocked] = useState(() => checkIsAdBlockActive());
   const containerRef = useRef(null);
 
   // If user has Priority Pass or ads are disabled globally, remove all advertisements!
@@ -19,6 +20,11 @@ export default function AdBanner({ variant = 'card', className = '' }) {
   // Mount Adsterra Native Banner script safely
   useEffect(() => {
     if (!isAdsterra || !nativeConfig?.scriptUrl || variant !== 'card') return;
+
+    if (checkIsAdBlockActive()) {
+      setAdBlocked(true);
+      return;
+    }
 
     try {
       const existingScript = document.querySelector(`script[src="${nativeConfig.scriptUrl}"]`);
@@ -36,7 +42,6 @@ export default function AdBanner({ variant = 'card', className = '' }) {
         document.body.appendChild(script);
       }
     } catch (err) {
-      console.warn('[AdBanner] Failed to load ad script:', err);
       setAdBlocked(true);
     }
   }, [isAdsterra, nativeConfig, variant]);

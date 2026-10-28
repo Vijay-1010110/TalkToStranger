@@ -358,6 +358,15 @@ export default function HomeView({
           )}
         </div>
 
+        {/* Footer Build / Version Status */}
+        <div className="mt-6 pt-3 pb-6 flex items-center justify-between text-[10px] font-mono text-slate-500 border-t border-[#334155]/60">
+          <span>TalkToStranger v2.2.0 • WebRTC Encrypted</span>
+          <span className="flex items-center gap-1.5 text-slate-400">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+            <span>Live • Oct 28 Release</span>
+          </span>
+        </div>
+
       </div>
     </div>
   );

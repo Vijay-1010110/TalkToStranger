@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { AD_CONFIG } from '../config/ads';
+import { checkIsAdBlockActive } from '../utils/adBlockDetector';
 
 const AdContext = createContext({
   adConfig: AD_CONFIG,
@@ -43,9 +44,9 @@ export function AdProvider({ children, inCall = false }) {
       return;
     }
 
-    // Adsterra Social Bar Script injection
+    // Adsterra Social Bar Script injection (skip if browser has active ad blocker)
     const socialScriptUrl = AD_CONFIG.adsterra?.socialBarScriptUrl;
-    if (socialScriptUrl) {
+    if (socialScriptUrl && !checkIsAdBlockActive()) {
       const existing = document.querySelector(`script[src="${socialScriptUrl}"]`);
       if (existing) return;
 

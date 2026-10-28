@@ -20,6 +20,7 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { useWebRTC } from './hooks/useWebRTC';
 import { sounds } from './utils/sound';
 import { analytics } from './utils/analytics';
+import TesterPage from './components/TesterPage';
 
 // Persistent Unique Device/Browser Client ID
 let uniqueClientId = '';
@@ -629,6 +630,13 @@ function MainApp() {
 }
 
 export default function App() {
+  const isTesterPath = typeof window !== 'undefined' && 
+    (window.location.pathname === '/tester' || window.location.pathname === '/tester/' || window.location.pathname === '/dev-tester');
+
+  if (isTesterPath) {
+    return <TesterPage />;
+  }
+
   return (
     <AuthProvider>
       <LanguageProvider>
