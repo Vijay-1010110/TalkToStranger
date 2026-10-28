@@ -7,13 +7,41 @@ const AdContext = createContext({
   isAdFree: false
 });
 
-export function AdProvider({ children }) {
+export function AdProvider({ children, inCall = false }) {
   const { isPriority } = useAuth();
-  const isAdFree = Boolean(isPriority || !AD_CONFIG.enabled);
+  const isAdFree = Boolean(isPriority || !AD_CONFIG.enabled || inCall);
 
-  // Inject global network scripts (Adsterra Social Bar) if user is not Priority
+  // During call, ensure in-call-active class is added to body to suppress all floating ad overlays
   useEffect(() => {
-    if (isAdFree) return;
+    if (typeof document !== 'undefined') {
+      if (inCall) {
+        document.body.classList.add('in-call-active');
+      } else {
+        document.body.classList.remove('in-call-active');
+      }
+    }
+    return () => {
+      if (typeof document !== 'undefined') {
+        document.body.classList.remove('in-call-active');
+      }
+    };
+  }, [inCall]);
+
+  // Inject global network scripts (Adsterra Social Bar) ONLY when outside of calls and if user is not Priority
+  useEffect(() => {
+    if (isAdFree || inCall) {
+      // Remove any injected social bar script if active
+      const socialScriptUrl = AD_CONFIG.adsterra?.socialBarScriptUrl;
+      if (socialScriptUrl) {
+        const existing = document.querySelector(`script[src="${socialScriptUrl}"]`);
+        if (existing && document.body.contains(existing)) {
+          try {
+            document.body.removeChild(existing);
+          } catch {}
+        }
+      }
+      return;
+    }
 
     // Adsterra Social Bar Script injection
     const socialScriptUrl = AD_CONFIG.adsterra?.socialBarScriptUrl;
@@ -36,7 +64,7 @@ export function AdProvider({ children }) {
         } catch {}
       };
     }
-  }, [isAdFree]);
+  }, [isAdFree, inCall]);
 
   return (
     <AdContext.Provider value={{ adConfig: AD_CONFIG, isAdFree }}>

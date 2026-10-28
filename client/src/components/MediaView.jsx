@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Mic, MicOff, VideoOff, Wifi, Columns, Square, Maximize2 } from 'lucide-react';
+import { Mic, MicOff, VideoOff, Wifi, Columns, Rows, Square } from 'lucide-react';
 
 export default function MediaView({
   mode,
@@ -20,20 +20,19 @@ export default function MediaView({
   const [objectFit, setObjectFit] = useState('contain'); // 'contain' for zero crop or 'cover' for full bleed
   const [canvasLayout, setCanvasLayout] = useState(() => {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('stranger_video_layout') || 'pip';
+      const saved = localStorage.getItem('stranger_video_layout');
+      if (saved === 'split') return 'vertical';
+      return saved || 'vertical';
     }
-    return 'pip';
-  }); // 'pip' (normal: stranger large, self small) | 'split' (equal 50/50 size)
+    return 'vertical';
+  }); // 'vertical' (stacked top/bottom) | 'horizontal' (side-by-side) | 'pip' (normal: stranger large, self small)
 
-  // Toggle layout mode
-  const toggleLayout = () => {
-    setCanvasLayout((prev) => {
-      const next = prev === 'pip' ? 'split' : 'pip';
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('stranger_video_layout', next);
-      }
-      return next;
-    });
+  // Switch layout mode
+  const handleLayoutChange = (nextLayout) => {
+    setCanvasLayout(nextLayout);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('stranger_video_layout', nextLayout);
+    }
   };
 
   // Sync local stream
@@ -43,10 +42,16 @@ export default function MediaView({
     }
   }, [localStream, canvasLayout]);
 
-  // Sync remote stream
+  // Sync remote stream & ensure play() is called to overcome browser autoplay blocks
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream;
+      const playPromise = remoteVideoRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.catch((err) => {
+          console.warn('[MediaView] Remote media autoplay paused by browser policy:', err);
+        });
+      }
     }
   }, [remoteStream, canvasLayout]);
 
@@ -116,35 +121,118 @@ export default function MediaView({
     );
   }
 
+  // Helper for rendering Stranger Video Box
+  const renderStrangerPane = () => (
+    <div className="relative w-full h-full rounded-lg border border-[#334155] bg-[#070b14] overflow-hidden flex items-center justify-center shadow-md">
+      {remoteStream ? (
+        <video
+          ref={remoteVideoRef}
+          autoPlay
+          playsInline
+          className={`w-full h-full ${objectFit === 'cover' ? 'object-cover' : 'object-contain'}`}
+          onDoubleClick={() => setObjectFit((prev) => (prev === 'cover' ? 'contain' : 'cover'))}
+        />
+      ) : (
+        <div className="text-xs font-mono text-slate-500">
+          Connecting video stream...
+        </div>
+      )}
+
+      {/* Stranger Label Badge */}
+      <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#0f172a]/90 border border-[#334155] text-[10px] font-mono text-white backdrop-blur-sm shadow z-10">
+        <span className={`w-1.5 h-1.5 rounded-full ${isRemoteSpeaking ? 'bg-sky-400 animate-pulse' : 'bg-slate-500'}`}></span>
+        <span>STRANGER</span>
+        {renderGenderIcon(partnerGender)}
+        {renderRegionBadge(partnerRegion)}
+        {partnerTier === 'priority' && (
+          <span className="text-[8px] bg-white text-slate-900 px-1 rounded font-bold ml-0.5">VERIFIED</span>
+        )}
+      </div>
+    </div>
+  );
+
+  // Helper for rendering You (Local) Video Box
+  const renderLocalPane = () => (
+    <div className="relative w-full h-full rounded-lg border border-[#334155] bg-[#070b14] overflow-hidden flex items-center justify-center shadow-md">
+      {localStream && !isVideoOff ? (
+        <video
+          ref={localVideoRef}
+          autoPlay
+          playsInline
+          muted
+          className={`w-full h-full video-mirror ${objectFit === 'cover' ? 'object-cover' : 'object-contain'}`}
+        />
+      ) : (
+        <div className="text-xs font-mono text-slate-500 flex flex-col items-center gap-1">
+          <VideoOff className="w-5 h-5 text-slate-600" />
+          <span>Camera Off</span>
+        </div>
+      )}
+
+      {/* You Label Badge */}
+      <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#0f172a]/90 border border-[#334155] text-[10px] font-mono text-white backdrop-blur-sm shadow z-10">
+        <span className={`w-1.5 h-1.5 rounded-full ${isLocalSpeaking && !isMuted ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`}></span>
+        <span>YOU</span>
+        {isMuted && <span className="text-red-400 text-[9px]">(MUTED)</span>}
+      </div>
+    </div>
+  );
+
   // --- VIDEO CHAT MODE ---
   return (
-    <div className="relative w-full h-full min-h-[200px] flex-1 bg-[#0b101c] flex items-center justify-center overflow-hidden select-none">
+    <div className="relative w-full h-full min-h-[200px] flex-1 bg-[#0b101c] flex items-center justify-center overflow-hidden select-none isolate z-10">
       
       {/* Top Floating Control Toolbar */}
       <div className="absolute top-2 right-2 z-30 flex items-center gap-1.5 pointer-events-auto">
-        {/* Layout Switcher (Equal 50/50 vs Normal PiP) */}
-        <button
-          type="button"
-          onClick={toggleLayout}
-          title={canvasLayout === 'pip' ? 'Switch to Equal 50/50 Split Canvas' : 'Switch to Normal PiP Canvas'}
-          className="px-2.5 py-1 rounded bg-[#1e293b]/90 border border-[#334155] hover:border-[#64748b] text-[10px] font-mono text-white flex items-center gap-1.5 transition-all shadow-md backdrop-blur-sm"
-        >
-          {canvasLayout === 'pip' ? (
-            <>
-              <Columns className="w-3 h-3 text-sky-400" />
-              <span>EQUAL 50:50</span>
-            </>
-          ) : (
-            <>
-              <Square className="w-3 h-3 text-sky-400" />
-              <span>NORMAL PIP</span>
-            </>
-          )}
-        </button>
+        {/* Layout Switcher (Vertical / Side-by-Side / PiP) */}
+        <div className="flex items-center rounded-lg bg-[#0f172a]/95 border border-[#334155] p-0.5 shadow-lg backdrop-blur-md">
+          <button
+            type="button"
+            onClick={() => handleLayoutChange('vertical')}
+            title="Vertical Alignment: Stacked Top & Bottom"
+            className={`px-2 py-1 rounded text-[10px] font-mono flex items-center gap-1 transition-all ${
+              canvasLayout === 'vertical'
+                ? 'bg-sky-500 text-white font-bold shadow-xs'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Rows className="w-3 h-3" />
+            <span className="hidden xs:inline">VERTICAL</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleLayoutChange('horizontal')}
+            title="Side-by-Side Horizontal Alignment"
+            className={`px-2 py-1 rounded text-[10px] font-mono flex items-center gap-1 transition-all ${
+              canvasLayout === 'horizontal'
+                ? 'bg-sky-500 text-white font-bold shadow-xs'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Columns className="w-3 h-3" />
+            <span className="hidden xs:inline">SIDE-BY-SIDE</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => handleLayoutChange('pip')}
+            title="Picture-in-Picture: Full stranger with floating local preview"
+            className={`px-2 py-1 rounded text-[10px] font-mono flex items-center gap-1 transition-all ${
+              canvasLayout === 'pip'
+                ? 'bg-sky-500 text-white font-bold shadow-xs'
+                : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Square className="w-3 h-3" />
+            <span className="hidden xs:inline">PIP</span>
+          </button>
+        </div>
 
         {/* Fit / Fill Toggle */}
         <button
-          onClick={() => setObjectFit(prev => prev === 'cover' ? 'contain' : 'cover')}
+          type="button"
+          onClick={() => setObjectFit((prev) => (prev === 'cover' ? 'contain' : 'cover'))}
           title={objectFit === 'cover' ? 'Fit video to frame' : 'Fill entire frame'}
           className="px-2 py-1 rounded bg-[#1e293b]/90 border border-[#334155] text-[10px] font-mono text-slate-300 hover:text-white backdrop-blur-sm"
         >
@@ -158,67 +246,25 @@ export default function MediaView({
         </div>
       </div>
 
-      {/* --- EQUAL SIZE (50/50 SPLIT) CANVAS --- */}
-      {canvasLayout === 'split' ? (
-        <div className="w-full h-full p-2 grid grid-cols-1 md:grid-cols-2 grid-rows-2 md:grid-rows-1 gap-2 bg-[#0b101c]">
-          
-          {/* Target (Stranger) Pane - 50% */}
-          <div className="relative w-full h-full rounded-lg border border-[#334155] bg-[#070b14] overflow-hidden flex items-center justify-center shadow-md">
-            {remoteStream ? (
-              <video
-                ref={remoteVideoRef}
-                autoPlay
-                playsInline
-                className={`w-full h-full ${objectFit === 'cover' ? 'object-cover' : 'object-contain'}`}
-              />
-            ) : (
-              <div className="text-xs font-mono text-slate-500">
-                Connecting video stream...
-              </div>
-            )}
-
-            {/* Stranger Label Badge */}
-            <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#0f172a]/90 border border-[#334155] text-[10px] font-mono text-white backdrop-blur-sm shadow">
-              <span className={`w-1.5 h-1.5 rounded-full ${isRemoteSpeaking ? 'bg-sky-400 animate-pulse' : 'bg-slate-500'}`}></span>
-              <span>STRANGER</span>
-              {renderGenderIcon(partnerGender)}
-              {renderRegionBadge(partnerRegion)}
-              {partnerTier === 'priority' && (
-                <span className="text-[8px] bg-white text-slate-900 px-1 rounded font-bold ml-0.5">VERIFIED</span>
-              )}
-            </div>
-          </div>
-
-          {/* Self (You) Pane - 50% */}
-          <div className="relative w-full h-full rounded-lg border border-[#334155] bg-[#070b14] overflow-hidden flex items-center justify-center shadow-md">
-            {localStream && !isVideoOff ? (
-              <video
-                ref={localVideoRef}
-                autoPlay
-                playsInline
-                muted
-                className={`w-full h-full video-mirror ${objectFit === 'cover' ? 'object-cover' : 'object-contain'}`}
-              />
-            ) : (
-              <div className="text-xs font-mono text-slate-500 flex flex-col items-center gap-1">
-                <VideoOff className="w-5 h-5 text-slate-600" />
-                <span>Camera Off</span>
-              </div>
-            )}
-
-            {/* You Label Badge */}
-            <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#0f172a]/90 border border-[#334155] text-[10px] font-mono text-white backdrop-blur-sm shadow">
-              <span className={`w-1.5 h-1.5 rounded-full ${isLocalSpeaking && !isMuted ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`}></span>
-              <span>YOU</span>
-              {isMuted && <span className="text-red-400 text-[9px]">(MUTED)</span>}
-            </div>
-          </div>
-
+      {/* --- 1. VERTICAL CALL ALIGNMENT (Top: Stranger, Bottom: You) --- */}
+      {canvasLayout === 'vertical' && (
+        <div className="w-full h-full p-2 grid grid-rows-2 grid-cols-1 gap-2 bg-[#0b101c]">
+          {renderStrangerPane()}
+          {renderLocalPane()}
         </div>
-      ) : (
-        /* --- NORMAL CANVAS (Target Large, Self Small Corner) --- */
+      )}
+
+      {/* --- 2. HORIZONTAL CALL ALIGNMENT (Left: Stranger, Right: You) --- */}
+      {canvasLayout === 'horizontal' && (
+        <div className="w-full h-full p-2 grid grid-cols-2 grid-rows-1 gap-2 bg-[#0b101c]">
+          {renderStrangerPane()}
+          {renderLocalPane()}
+        </div>
+      )}
+
+      {/* --- 3. PIP CALL ALIGNMENT (Full Stranger, Small Self in Corner) --- */}
+      {canvasLayout === 'pip' && (
         <div className="relative w-full h-full flex items-center justify-center bg-[#0b101c]">
-          
           {/* Large Target Video (Stranger) */}
           {remoteStream ? (
             <video
@@ -226,7 +272,7 @@ export default function MediaView({
               autoPlay
               playsInline
               className={`w-full h-full ${objectFit === 'cover' ? 'object-cover' : 'object-contain'}`}
-              onDoubleClick={() => setObjectFit(prev => prev === 'cover' ? 'contain' : 'cover')}
+              onDoubleClick={() => setObjectFit((prev) => (prev === 'cover' ? 'contain' : 'cover'))}
             />
           ) : (
             <div className="text-xs font-mono text-slate-500">
@@ -235,7 +281,7 @@ export default function MediaView({
           )}
 
           {/* Stranger Status Overlay */}
-          <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#0f172a]/90 border border-[#334155] text-[10px] sm:text-[11px] font-mono text-white backdrop-blur-sm shadow">
+          <div className="absolute top-2 left-2 flex items-center gap-1.5 px-2 py-0.5 rounded bg-[#0f172a]/90 border border-[#334155] text-[10px] sm:text-[11px] font-mono text-white backdrop-blur-sm shadow z-10">
             <span className={`w-1.5 h-1.5 rounded-full ${isRemoteSpeaking ? 'bg-sky-400 animate-pulse' : 'bg-slate-500'}`}></span>
             <span>STRANGER</span>
             {renderGenderIcon(partnerGender)}
@@ -247,8 +293,8 @@ export default function MediaView({
 
           {/* Floating Self Video (Picture-in-Picture) */}
           <div
-            onClick={toggleLayout}
-            title="Click to switch between Equal 50/50 and PiP"
+            onClick={() => handleLayoutChange('vertical')}
+            title="Click to switch to Vertical Alignment"
             className="absolute bottom-2 right-2 w-24 xs:w-28 sm:w-36 md:w-44 aspect-video rounded-lg overflow-hidden bg-[#070b14] border border-[#334155] hover:border-sky-400 z-10 shadow-2xl cursor-pointer transition-all"
           >
             {localStream && !isVideoOff ? (
@@ -269,7 +315,6 @@ export default function MediaView({
               YOU {isMuted ? '(MUTED)' : ''}
             </div>
           </div>
-
         </div>
       )}
 

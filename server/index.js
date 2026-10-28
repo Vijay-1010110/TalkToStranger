@@ -9,13 +9,31 @@ const { router: authRouter } = require('./auth');
 const app = express();
 const server = http.createServer(app);
 
-// Free, globally distributed Google STUN servers (zero-cost WebRTC peer discovery)
+// Global STUN & TURN Relay configuration for seamless P2P & VPN/NAT traversal
 const FREE_ICE_SERVERS = [
+  // Fast Google STUN servers
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:stun2.l.google.com:19302' },
   { urls: 'stun:stun3.l.google.com:19302' },
   { urls: 'stun:stun4.l.google.com:19302' },
+  // OpenRelay community STUN & TURN servers (relays media through VPNs, Symmetric NATs, and firewalls)
+  { urls: 'stun:openrelay.metered.ca:80' },
+  {
+    urls: 'turn:openrelay.metered.ca:80',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  },
+  {
+    urls: 'turn:openrelay.metered.ca:443',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  },
+  {
+    urls: 'turn:openrelay.metered.ca:443?transport=tcp',
+    username: 'openrelayproject',
+    credential: 'openrelayproject'
+  }
 ];
 
 app.use(cors());

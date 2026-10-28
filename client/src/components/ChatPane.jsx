@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Send, Sparkles, Smile, Lightbulb, Dice5, X } from 'lucide-react';
-import SponsorCard from './SponsorCard';
 import { useTranslation } from '../context/LanguageContext';
 
 const STARTER_CATEGORIES = {
@@ -57,6 +56,8 @@ const STARTER_CATEGORIES = {
 const ALL_STARTERS = Object.values(STARTER_CATEGORIES).flatMap(c => c.items);
 
 const QUICK_EMOJIS = ['👋', '😂', '🔥', '❤️', '👍', '💀', '😮', '✨'];
+// 5 quick reaction emojis directly displayed below stranger's messages
+const MESSAGE_REACTION_EMOJIS = ['👍', '❤️', '😂', '😮', '🔥'];
 
 const EXPANDED_EMOJIS = [
   // Faces & Reactions
@@ -85,6 +86,7 @@ export default function ChatPane({
   const [showStarters, setShowStarters] = useState(false);
   const [activeCategory, setActiveCategory] = useState('icebreakers');
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [reactions, setReactions] = useState({}); // msgId -> emoji
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -100,6 +102,7 @@ export default function ChatPane({
     } else {
       setShowStarters(false);
       setShowEmojiPicker(false);
+      setReactions({});
     }
   }, [isMatched]);
 
@@ -160,10 +163,30 @@ export default function ChatPane({
     }, 50);
   };
 
-  // Insert emoji at cursor or end
-  const handleEmojiClick = (emoji) => {
-    setInputText((prev) => prev + emoji);
-    inputRef.current?.focus();
+  // DIRECT SEND: When clicking showing emoji, immediately send without waiting for Send button press
+  const handleDirectSendEmoji = (emoji) => {
+    if (!isMatched) return;
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    if (onTyping) onTyping(false);
+
+    onSendMessage(emoji);
+    setShowEmojiPicker(false);
+  };
+
+  // Quick 5-emoji reaction directly below Stranger's message
+  const handleMessageReaction = (msgId, emoji) => {
+    if (!isMatched) return;
+
+    setReactions((prev) => ({
+      ...prev,
+      [msgId]: prev[msgId] === emoji ? null : emoji
+    }));
+
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    if (onTyping) onTyping(false);
+
+    onSendMessage(emoji);
   };
 
   // Helper to format partner gender badge
@@ -214,9 +237,6 @@ export default function ChatPane({
 
       {/* Messages Feed */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3 font-sans text-xs min-h-0 bg-[#0f172a]">
-        {/* Native Sponsor Notice (Auto-removed for Priority users) */}
-        <SponsorCard variant="inline" />
-
         {/* Welcome Banner */}
         <div className="p-3 my-1 bg-[#1e293b] border border-[#334155] rounded text-center shadow-sm">
           <p className="font-mono text-xs font-semibold text-white">
@@ -244,10 +264,10 @@ export default function ChatPane({
           return (
             <div
               key={msg.id}
-              className={`flex w-full ${isYou ? 'justify-end' : 'justify-start'}`}
+              className={`flex flex-col w-full ${isYou ? 'items-end' : 'items-start'} group`}
             >
               <div
-                className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-3.5 py-2 text-xs leading-relaxed break-words shadow-sm ${
+                className={`relative max-w-[85%] sm:max-w-[75%] rounded-2xl px-3.5 py-2 text-xs leading-relaxed break-words shadow-sm ${
                   isYou
                     ? 'bg-[#2563eb] text-white rounded-tr-xs'
                     : 'bg-[#1e293b] border border-[#334155] text-slate-100 rounded-tl-xs'
@@ -262,7 +282,38 @@ export default function ChatPane({
                 </div>
 
                 <div className="whitespace-pre-wrap">{msg.text}</div>
+
+                {/* Attached Reaction Pill */}
+                {reactions[msg.id] && (
+                  <div className="absolute -bottom-2 -right-1 bg-[#0f172a] border border-[#334155] rounded-full px-1.5 py-0.2 text-[11px] shadow-md flex items-center z-10 animate-in fade-in">
+                    <span>{reactions[msg.id]}</span>
+                  </div>
+                )}
               </div>
+
+              {/* Quick 5 Emoji Reaction Panel directly below Stranger's message */}
+              {!isYou && isMatched && (
+                <div className="flex items-center gap-1 mt-1 ml-1 select-none">
+                  <div className="flex items-center gap-0.5 bg-[#162032]/90 border border-[#334155]/70 rounded-full px-1.5 py-0.5 shadow-xs backdrop-blur-xs">
+                    {MESSAGE_REACTION_EMOJIS.map((emoji) => {
+                      const isSelected = reactions[msg.id] === emoji;
+                      return (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => handleMessageReaction(msg.id, emoji)}
+                          className={`text-xs p-1 rounded-full transition-all active:scale-125 hover:bg-[#334155] ${
+                            isSelected ? 'bg-sky-500/30 scale-110' : 'opacity-85 hover:opacity-100'
+                          }`}
+                          title={`React ${emoji} (sends directly)`}
+                        >
+                          {emoji}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
@@ -355,7 +406,7 @@ export default function ChatPane({
       {showEmojiPicker && (
         <div className="p-2 border-t border-[#334155] bg-[#1e293b] shadow-xl z-20">
           <div className="flex items-center justify-between text-xs font-mono text-slate-300 pb-1.5 mb-1.5 border-b border-[#334155]/60">
-            <span className="text-[11px] font-semibold text-slate-200">Tap to add emoji:</span>
+            <span className="text-[11px] font-semibold text-slate-200">Tap emoji to send instantly:</span>
             <button
               onClick={() => setShowEmojiPicker(false)}
               className="text-slate-400 hover:text-white p-0.5"
@@ -368,8 +419,9 @@ export default function ChatPane({
               <button
                 key={idx}
                 type="button"
-                onClick={() => handleEmojiClick(emoji)}
-                className="p-1 rounded hover:bg-[#334155] active:scale-95 transition-all text-center flex items-center justify-center aspect-square"
+                onClick={() => handleDirectSendEmoji(emoji)}
+                className="p-1 rounded hover:bg-[#334155] active:scale-125 transition-all text-center flex items-center justify-center aspect-square"
+                title={`Send ${emoji} instantly`}
               >
                 {emoji}
               </button>
@@ -438,9 +490,9 @@ export default function ChatPane({
               key={idx}
               type="button"
               disabled={!isMatched}
-              onClick={() => handleEmojiClick(emoji)}
-              className="text-sm px-1 py-0.5 rounded hover:bg-[#334155] disabled:opacity-30 active:scale-90 transition-transform"
-              title={`Add ${emoji}`}
+              onClick={() => handleDirectSendEmoji(emoji)}
+              className="text-sm px-1.5 py-0.5 rounded hover:bg-[#334155] disabled:opacity-30 active:scale-125 transition-transform"
+              title={`Send ${emoji} instantly`}
             >
               {emoji}
             </button>

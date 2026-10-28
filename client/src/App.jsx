@@ -438,7 +438,8 @@ function MainApp() {
   }
 
   return (
-    <div className="flex flex-col h-[100dvh] w-full max-h-[100dvh] bg-[#0f172a] text-[#f1f5f9] select-none font-sans overflow-hidden">
+    <AdProvider inCall={appState === 'matched' || appState === 'searching'}>
+      <div className="flex flex-col h-[100dvh] w-full max-h-[100dvh] bg-[#0f172a] text-[#f1f5f9] select-none font-sans overflow-hidden">
       
       {/* Top Navbar */}
       <Navbar
@@ -622,7 +623,8 @@ function MainApp() {
         onClose={() => setIsShareOpen(false)}
       />
 
-    </div>
+      </div>
+    </AdProvider>
   );
 }
 
@@ -630,9 +632,7 @@ export default function App() {
   return (
     <AuthProvider>
       <LanguageProvider>
-        <AdProvider>
-          <MainApp />
-        </AdProvider>
+        <MainApp />
       </LanguageProvider>
     </AuthProvider>
   );
