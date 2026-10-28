@@ -1,13 +1,32 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Mic, MicOff, Video, VideoOff, MessageSquare, Phone, ShieldCheck, HelpCircle, ChevronDown, ChevronUp, RefreshCw, Sliders, PowerOff } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, MessageSquare, Phone, ShieldCheck, HelpCircle, ChevronDown, ChevronUp, RefreshCw, Sliders, PowerOff, Globe } from 'lucide-react';
 import SponsorCard from './SponsorCard';
 import { useAuth } from '../context/AuthContext';
+import { useTranslation } from '../context/LanguageContext';
+
+const REGION_OPTIONS = [
+  { code: 'global', name: 'Worldwide / Any (Fastest)', flag: '🌍' },
+  { code: 'US', name: 'United States', flag: '🇺🇸' },
+  { code: 'IN', name: 'India', flag: '🇮🇳' },
+  { code: 'GB', name: 'United Kingdom', flag: '🇬🇧' },
+  { code: 'CA', name: 'Canada', flag: '🇨🇦' },
+  { code: 'DE', name: 'Germany', flag: '🇩🇪' },
+  { code: 'FR', name: 'France', flag: '🇫🇷' },
+  { code: 'ES', name: 'Spain', flag: '🇪🇸' },
+  { code: 'BR', name: 'Brazil', flag: '🇧🇷' },
+  { code: 'AU', name: 'Australia', flag: '🇦🇺' },
+  { code: 'JP', name: 'Japan', flag: '🇯🇵' },
+  { code: 'MX', name: 'Mexico', flag: '🇲🇽' },
+  { code: 'SA', name: 'Middle East', flag: '🇸🇦' },
+];
 
 export default function HomeView({
   selectedMode,
   setSelectedMode,
   gender = 'male',
   setGender,
+  region = 'global',
+  setRegion,
   onStartSearch,
   localStream,
   isMuted,
@@ -20,6 +39,7 @@ export default function HomeView({
   onReacquirePermissions
 }) {
   const { isPriority } = useAuth();
+  const { t } = useTranslation();
   const previewVideoRef = useRef(null);
   const [showFaq, setShowFaq] = useState(false);
 
@@ -60,10 +80,10 @@ export default function HomeView({
         <div className="mb-5 text-center sm:text-left">
           <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
             <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white font-mono uppercase">
-              Talk to Stranger
+              {t('title')}
             </h1>
             <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/20 text-sky-400 border border-sky-500/30 font-bold">
-              OMEGLE ALTERNATIVE
+              {t('badgeAlt')}
             </span>
             {isPriority && (
               <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-white text-slate-900 font-bold">
@@ -72,7 +92,7 @@ export default function HomeView({
             )}
           </div>
           <p className="text-xs text-slate-400 mt-1 font-sans">
-            The #1 free alternative for Omegle. Random video chat, anonymous voice call &amp; text chat. Direct WebRTC P2P.
+            {t('heroSubtitle')}
           </p>
         </div>
 
@@ -87,8 +107,8 @@ export default function HomeView({
             }`}
           >
             <MessageSquare className="w-4 h-4" />
-            <span className="text-xs font-mono">Chat</span>
-            <span className="text-[10px] opacity-80 hidden sm:block">Text only</span>
+            <span className="text-xs font-mono">{t('chatMode')}</span>
+            <span className="text-[10px] opacity-80 hidden sm:block">{t('chatSub')}</span>
           </button>
 
           <button
@@ -100,8 +120,8 @@ export default function HomeView({
             }`}
           >
             <Phone className="w-4 h-4" />
-            <span className="text-xs font-mono">Voice</span>
-            <span className="text-[10px] opacity-80 hidden sm:block">Mic audio</span>
+            <span className="text-xs font-mono">{t('audioMode')}</span>
+            <span className="text-[10px] opacity-80 hidden sm:block">{t('audioSub')}</span>
           </button>
 
           <button
@@ -113,89 +133,76 @@ export default function HomeView({
             }`}
           >
             <Video className="w-4 h-4" />
-            <span className="text-xs font-mono">Video</span>
-            <span className="text-[10px] opacity-80 hidden sm:block">Cam &amp; mic</span>
+            <span className="text-xs font-mono">{t('videoMode')}</span>
+            <span className="text-[10px] opacity-80 hidden sm:block">{t('videoSub')}</span>
           </button>
         </div>
 
-        {/* Preview / Mode Highlights */}
+        {/* Mode Preview / Camera Setup Area */}
         {selectedMode === 'video' ? (
-          <div className="mb-5">
-            <div className="relative w-full aspect-video max-h-[35vh] sm:max-h-[220px] bg-[#0b101c] border border-[#334155] rounded overflow-hidden flex items-center justify-center shadow-inner">
-              {isHardwareRevoked ? (
-                <div className="flex flex-col items-center justify-center text-center p-3">
-                  <PowerOff className="w-6 h-6 text-red-400 mb-1" />
-                  <span className="text-xs font-mono text-slate-400">Hardware Access Released</span>
-                  <button
-                    onClick={onReacquirePermissions}
-                    className="mt-2 px-3 py-1 bg-white text-slate-900 text-[11px] font-mono font-semibold rounded"
-                  >
-                    Enable Camera
-                  </button>
-                </div>
-              ) : localStream && !isVideoOff ? (
-                <video
-                  ref={previewVideoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover video-mirror"
-                />
-              ) : (
-                <div className="text-xs font-mono text-slate-500">
-                  Camera inactive
-                </div>
-              )}
+          <div className="mb-5 relative rounded overflow-hidden bg-[#000000] border border-[#334155] aspect-video flex items-center justify-center shadow-inner">
+            {isHardwareRevoked ? (
+              <div className="flex flex-col items-center justify-center gap-2 p-4 text-center">
+                <PowerOff className="w-8 h-8 text-amber-400" />
+                <p className="text-xs font-mono text-slate-300">Camera &amp; Mic Hardware Revoked</p>
+                <button
+                  onClick={onReacquirePermissions}
+                  className="px-3 py-1.5 rounded bg-sky-600 hover:bg-sky-500 text-white font-mono text-xs font-semibold shadow transition-colors"
+                >
+                  Enable Camera &amp; Mic
+                </button>
+              </div>
+            ) : localStream && !isVideoOff ? (
+              <video
+                ref={previewVideoRef}
+                autoPlay
+                playsInline
+                muted
+                className="w-full h-full object-cover -scale-x-100"
+              />
+            ) : (
+              <div className="flex flex-col items-center justify-center gap-2 text-slate-500">
+                <VideoOff className="w-8 h-8" />
+                <span className="text-xs font-mono">Camera preview paused</span>
+              </div>
+            )}
 
-              {/* Hardware test toggles */}
-              {!isHardwareRevoked && (
-                <div className="absolute bottom-2 right-2 flex items-center gap-1.5">
+            {/* Quick in-preview camera controls */}
+            {!isHardwareRevoked && (
+              <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between pointer-events-auto">
+                <div className="flex items-center gap-1.5 bg-[#0f172a]/80 backdrop-blur-md px-2 py-1 rounded border border-[#334155]">
                   <button
-                    type="button"
                     onClick={toggleMute}
-                    className={`p-1.5 rounded text-xs border ${
-                      isMuted
-                        ? 'border-red-600 bg-red-600/30 text-red-300'
-                        : 'border-[#334155] bg-[#1e293b]/90 text-slate-200 hover:bg-[#334155]'
-                    }`}
-                    title={isMuted ? 'Unmute' : 'Mute'}
+                    className="p-1 rounded hover:bg-[#334155] text-slate-300 transition-colors"
+                    title={isMuted ? 'Unmute microphone' : 'Mute microphone'}
                   >
-                    {isMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                    {isMuted ? <MicOff className="w-3.5 h-3.5 text-red-400" /> : <Mic className="w-3.5 h-3.5" />}
                   </button>
                   <button
-                    type="button"
                     onClick={toggleVideo}
-                    className={`p-1.5 rounded text-xs border ${
-                      isVideoOff
-                        ? 'border-red-600 bg-red-600/30 text-red-300'
-                        : 'border-[#334155] bg-[#1e293b]/90 text-slate-200 hover:bg-[#334155]'
-                    }`}
-                    title={isVideoOff ? 'Turn on camera' : 'Turn off camera'}
+                    className="p-1 rounded hover:bg-[#334155] text-slate-300 transition-colors"
+                    title={isVideoOff ? 'Enable camera' : 'Disable camera'}
                   >
-                    {isVideoOff ? <VideoOff className="w-3.5 h-3.5" /> : <Video className="w-3.5 h-3.5" />}
+                    {isVideoOff ? <VideoOff className="w-3.5 h-3.5 text-red-400" /> : <Video className="w-3.5 h-3.5" />}
                   </button>
                   <button
-                    type="button"
-                    onClick={() => onSwitchCamera()}
-                    className="p-1.5 rounded text-xs border border-[#334155] bg-[#1e293b]/90 text-slate-200 hover:bg-[#334155]"
-                    title="Switch / Flip Camera"
+                    onClick={() => onSwitchCamera && onSwitchCamera()}
+                    className="p-1 rounded hover:bg-[#334155] text-slate-300 transition-colors"
+                    title="Flip camera front/back"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
                   </button>
-                  <button
-                    type="button"
-                    onClick={onOpenDeviceSettings}
-                    className="p-1.5 rounded text-xs border border-[#334155] bg-[#1e293b]/90 text-slate-200 hover:bg-[#334155]"
-                    title="Device Settings (Switch Mic/Cam or Revoke)"
-                  >
-                    <Sliders className="w-3.5 h-3.5" />
-                  </button>
                 </div>
-              )}
-            </div>
-            <p className="text-[11px] font-mono text-slate-400 text-center mt-1.5">
-              Live camera preview • Broadcast begins only when paired
-            </p>
+
+                <button
+                  onClick={onOpenDeviceSettings}
+                  className="p-1.5 rounded bg-[#0f172a]/80 backdrop-blur-md border border-[#334155] hover:bg-[#334155] text-slate-300 transition-colors"
+                  title="Audio / Video Settings"
+                >
+                  <Sliders className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
           </div>
         ) : selectedMode === 'audio' ? (
           <div className="mb-5 p-4 rounded bg-[#1e293b] border border-[#334155] text-center shadow-sm">
@@ -226,13 +233,13 @@ export default function HomeView({
         )}
 
         {/* Gender Selection */}
-        <div className="mb-4 p-3 bg-[#1e293b] border border-[#334155] rounded shadow-sm">
+        <div className="mb-3 p-3 bg-[#1e293b] border border-[#334155] rounded shadow-sm">
           <div className="flex items-center justify-between mb-2">
             <span className="text-[11px] font-mono text-slate-300 uppercase tracking-wider font-semibold">
-              Your Gender
+              {t('yourGender')}
             </span>
             <span className="text-[10px] font-mono text-slate-400">
-              Shown to your partner
+              {t('shownToPartner')}
             </span>
           </div>
           <div className="grid grid-cols-3 gap-2">
@@ -246,7 +253,7 @@ export default function HomeView({
               }`}
             >
               <span>♂</span>
-              <span>Male</span>
+              <span>{t('male')}</span>
             </button>
             <button
               type="button"
@@ -258,7 +265,7 @@ export default function HomeView({
               }`}
             >
               <span>♀</span>
-              <span>Female</span>
+              <span>{t('female')}</span>
             </button>
             <button
               type="button"
@@ -270,8 +277,34 @@ export default function HomeView({
               }`}
             >
               <span>🧑</span>
-              <span>Other</span>
+              <span>{t('other')}</span>
             </button>
+          </div>
+        </div>
+
+        {/* Region / Country Matching (Optional Feature) */}
+        <div className="mb-4 p-3 bg-[#1e293b] border border-[#334155] rounded shadow-sm">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-mono text-slate-300 uppercase tracking-wider font-semibold flex items-center gap-1.5">
+              <Globe className="w-3.5 h-3.5 text-sky-400" />
+              <span>{t('matchRegion')}</span>
+            </span>
+            <span className="text-[10px] font-mono text-slate-400">
+              {region === 'global' ? t('worldwide') : REGION_OPTIONS.find(r => r.code === region)?.flag}
+            </span>
+          </div>
+          <div className="relative">
+            <select
+              value={region}
+              onChange={(e) => setRegion && setRegion(e.target.value)}
+              className="w-full bg-[#0f172a] border border-[#334155] hover:border-slate-500 rounded px-2.5 py-2 text-xs font-mono text-slate-200 outline-none cursor-pointer transition-colors"
+            >
+              {REGION_OPTIONS.map((reg) => (
+                <option key={reg.code} value={reg.code} className="bg-[#0f172a] text-slate-200 py-1">
+                  {reg.flag} {reg.name}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
@@ -280,17 +313,17 @@ export default function HomeView({
           onClick={onStartSearch}
           className="w-full py-3.5 px-4 rounded bg-white hover:bg-slate-100 text-slate-900 font-bold text-sm font-mono transition-all active:scale-[0.99] flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
         >
-          <span>START CHATTING NOW</span>
+          <span>{t('startChatting')}</span>
           <span className="text-xs text-slate-500 font-normal hidden sm:inline">[Space]</span>
         </button>
 
         {/* Privacy & Safety Note */}
-        <div className="mt-4 flex items-center justify-center gap-2 text-[11px] font-mono text-slate-400">
-          <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
-          <span>Encrypted WebRTC P2P • Zero conversation logs • 100% Free</span>
+        <div className="mt-4 flex items-center justify-center gap-2 text-[11px] font-mono text-slate-400 text-center">
+          <ShieldCheck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          <span>{t('privacyNote')}</span>
         </div>
 
-        {/* Native Sponsor Placement */}
+        {/* Native Sponsor / Ad Placement */}
         <SponsorCard variant="card" />
 
         {/* SEO Knowledge & FAQ Toggle (Google Indexable Rich Content) */}
@@ -302,7 +335,7 @@ export default function HomeView({
           >
             <span className="flex items-center gap-1.5">
               <HelpCircle className="w-3.5 h-3.5" />
-              <span>About Talk to Stranger &amp; FAQ</span>
+              <span>{t('aboutFaq')}</span>
             </span>
             {showFaq ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>

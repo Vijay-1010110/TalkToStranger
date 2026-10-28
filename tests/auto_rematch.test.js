@@ -6,11 +6,15 @@ const SOCKET_URL = 'http://localhost:5000';
 async function testAutoRematch() {
   console.log('Testing Auto-Rematch when one side ends or skips...');
 
-  const clientA = io(SOCKET_URL, { auth: { clientId: 'client_A_' + Date.now() } });
-  const clientB = io(SOCKET_URL, { auth: { clientId: 'client_B_' + Date.now() } });
-  const clientC = io(SOCKET_URL, { auth: { clientId: 'client_C_' + Date.now() } });
+  const clientA = io(SOCKET_URL, { transports: ['websocket'], auth: { clientId: 'client_A_' + Date.now() } });
+  const clientB = io(SOCKET_URL, { transports: ['websocket'], auth: { clientId: 'client_B_' + Date.now() } });
+  const clientC = io(SOCKET_URL, { transports: ['websocket'], auth: { clientId: 'client_C_' + Date.now() } });
 
-  await new Promise(r => setTimeout(r, 600));
+  await Promise.all([
+    new Promise(resolve => clientA.on('connect', resolve)),
+    new Promise(resolve => clientB.on('connect', resolve)),
+    new Promise(resolve => clientC.on('connect', resolve))
+  ]);
 
   let matchedA = null;
   let matchedB = null;

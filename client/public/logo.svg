@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0f172a" />
+      <stop offset="100%" stop-color="#1e293b" />
+    </linearGradient>
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+    <linearGradient id="indigoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#60a5fa" />
+      <stop offset="100%" stop-color="#2563eb" />
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.4" />
+    </filter>
+  </defs>
+
+  <!-- Squircle Base with Border -->
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+  <rect x="8" y="8" width="496" height="496" rx="104" stroke="#334155" stroke-width="6" fill="none" />
+
+  <!-- Dual Connected Stranger Chat / Video Bubbles -->
+  <g filter="url(#shadow)" transform="translate(46, 66)">
+    
+    <!-- Primary Video Chat Bubble (Left / Sky Blue) -->
+    <path d="M70 70 C 70 31.3 101.3 0 140 0 L 260 0 C 298.7 0 330 31.3 330 70 L 330 170 C 330 208.7 298.7 240 260 240 L 140 240 L 70 290 L 70 240 C 31.3 240 0 208.7 0 170 L 0 70 C 0 31.3 31.3 0 70 0 Z" fill="url(#blueGrad)" />
+
+    <!-- Video Camera Icon inside Primary Bubble -->
+    <g transform="translate(90, 70)" fill="#ffffff">
+      <rect x="0" y="10" width="100" height="70" rx="16" />
+      <path d="M 110 30 L 150 10 L 150 80 L 110 60 Z" />
+      <circle cx="50" cy="45" r="16" fill="url(#blueGrad)" />
+    </g>
+
+    <!-- Secondary Peer Bubble (Right / Indigo Accent) -->
+    <path d="M 230 190 C 230 160 255 135 285 135 L 365 135 C 395 135 420 160 420 190 L 420 270 C 420 300 395 325 365 325 L 350 325 L 350 365 L 305 325 L 285 325 C 255 325 230 300 230 270 Z" fill="url(#indigoGrad)" opacity="0.95" />
+
+    <!-- Sound / Message Wave inside Peer Bubble -->
+    <g transform="translate(305, 205)" stroke="#ffffff" stroke-width="7" stroke-linecap="round">
+      <line x1="0" y1="20" x2="0" y2="40" />
+      <line x1="16" y1="10" x2="16" y2="50" />
+      <line x1="32" y1="0" x2="32" y2="60" />
+      <line x1="48" y1="10" x2="48" y2="50" />
+      <line x1="64" y1="20" x2="64" y2="40" />
+    </g>
+
+  </g>
+
+  <!-- P2P Live Glow Dot -->
+  <circle cx="430" cy="90" r="16" fill="#10b981" />
+  <circle cx="430" cy="90" r="24" stroke="#10b981" stroke-width="4" opacity="0.4" />
+</svg>

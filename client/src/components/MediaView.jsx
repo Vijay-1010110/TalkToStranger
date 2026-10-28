@@ -12,7 +12,8 @@ export default function MediaView({
   connectionState,
   isDataChannelReady,
   partnerTier,
-  partnerGender
+  partnerGender,
+  partnerRegion = 'global'
 }) {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -55,6 +56,11 @@ export default function MediaView({
     if (gender === 'female') return <span className="text-pink-400 font-mono">♀ Female</span>;
     if (gender === 'other') return <span className="text-emerald-400 font-mono">🧑 Other</span>;
     return null;
+  };
+
+  const renderRegionBadge = (reg) => {
+    if (!reg || reg === 'global') return <span className="text-slate-400 font-mono text-[9px]">🌍 Global</span>;
+    return <span className="text-sky-300 font-mono font-semibold text-[9px]">📍 {reg.toUpperCase()}</span>;
   };
 
   if (mode === 'chat') {
@@ -176,6 +182,7 @@ export default function MediaView({
               <span className={`w-1.5 h-1.5 rounded-full ${isRemoteSpeaking ? 'bg-sky-400 animate-pulse' : 'bg-slate-500'}`}></span>
               <span>STRANGER</span>
               {renderGenderIcon(partnerGender)}
+              {renderRegionBadge(partnerRegion)}
               {partnerTier === 'priority' && (
                 <span className="text-[8px] bg-white text-slate-900 px-1 rounded font-bold ml-0.5">VERIFIED</span>
               )}
@@ -232,6 +239,7 @@ export default function MediaView({
             <span className={`w-1.5 h-1.5 rounded-full ${isRemoteSpeaking ? 'bg-sky-400 animate-pulse' : 'bg-slate-500'}`}></span>
             <span>STRANGER</span>
             {renderGenderIcon(partnerGender)}
+            {renderRegionBadge(partnerRegion)}
             {partnerTier === 'priority' && (
               <span className="text-[8px] bg-white text-slate-900 px-1 rounded font-bold ml-0.5">VERIFIED</span>
             )}

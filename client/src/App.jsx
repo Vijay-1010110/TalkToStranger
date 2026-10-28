@@ -10,12 +10,16 @@ import ShortcutsModal from './components/ShortcutsModal';
 import AuthModal from './components/AuthModal';
 import PriorityModal from './components/PriorityModal';
 import DeviceSettingsModal from './components/DeviceSettingsModal';
+import ShareModal from './components/ShareModal';
 import WebSharePane from './components/WebSharePane';
 import SponsorCard from './components/SponsorCard';
+import { AdProvider } from './components/AdProvider';
+import { LanguageProvider, useTranslation } from './context/LanguageContext';
 import LoadingScreen from './components/LoadingScreen';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { useWebRTC } from './hooks/useWebRTC';
 import { sounds } from './utils/sound';
+import { analytics } from './utils/analytics';
 
 // Persistent Unique Device/Browser Client ID
 let uniqueClientId = '';
@@ -35,6 +39,7 @@ const socket = io(typeof window !== 'undefined' ? window.location.origin : 'http
 
 function MainApp() {
   const { user, isPriority, loading: authLoading } = useAuth();
+  const { t } = useTranslation();
   const [appState, setAppState] = useState('idle'); // 'idle' | 'searching' | 'matched'
   const [selectedMode, setSelectedMode] = useState('video'); // 'chat' | 'audio' | 'video'
   const [activeMode, setActiveMode] = useState('video');
@@ -49,7 +54,19 @@ function MainApp() {
     return 'male';
   });
   const [partnerGender, setPartnerGender] = useState('other');
-  const [isSoundMuted, setIsSoundMuted] = useState(false);
+  const [region, setRegion] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('stranger_user_region') || 'global';
+    }
+    return 'global';
+  });
+  const [partnerRegion, setPartnerRegion] = useState('global');
+  const [isSoundMuted, setIsSoundMuted] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('stranger_sound_muted') === 'true';
+    }
+    return false;
+  });
   const [appReady, setAppReady] = useState(false);
 
   const handleSetGender = (val) => {
@@ -59,24 +76,40 @@ function MainApp() {
     }
   };
 
+  const handleSetRegion = (val) => {
+    setRegion(val);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('stranger_user_region', val);
+    }
+  };
+
   // Synchronized refs to avoid stale closure issues during socket events
   const appStateRef = useRef(appState);
   const activeModeRef = useRef(activeMode);
   const genderRef = useRef(gender);
+  const regionRef = useRef(region);
   const userRef = useRef(user);
 
   useEffect(() => {
     appStateRef.current = appState;
     activeModeRef.current = activeMode;
     genderRef.current = gender;
+    regionRef.current = region;
     userRef.current = user;
-  }, [appState, activeMode, gender, user]);
+  }, [appState, activeMode, gender, region, user]);
 
   // Modals
   const [isShortcutsOpen, setIsShortcutsOpen] = useState(false);
   const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [isPriorityOpen, setIsPriorityOpen] = useState(false);
   const [isDeviceSettingsOpen, setIsDeviceSettingsOpen] = useState(false);
+  const [isShareOpen, setIsShareOpen] = useState(false);
+
+  // Initialize Analytics
+  useEffect(() => {
+    analytics.init();
+    analytics.trackPageView();
+  }, []);
 
   // External Web Co-Browse State
   const [isWebShareOpen, setIsWebShareOpen] = useState(false);
@@ -172,12 +205,13 @@ function MainApp() {
       setActiveMode(data.mode);
       setPartnerTier(data.partnerTier || 'guest');
       setPartnerGender(data.partnerGender || 'other');
+      setPartnerRegion(data.partnerRegion || 'global');
       setAppState('matched');
       setMessages([
         {
           id: 'sys-start-' + Date.now(),
           sender: 'system',
-          text: 'Connected with stranger. Say hi!'
+          text: t('connectedPrompt')
         }
       ]);
 
@@ -229,7 +263,8 @@ function MainApp() {
         socket.emit('find-stranger', {
           mode: activeModeRef.current,
           tier: userRef.current?.tier || 'guest',
-          gender: genderRef.current || 'other'
+          gender: genderRef.current || 'other',
+          region: regionRef.current || 'global'
         });
       }
     });
@@ -261,7 +296,8 @@ function MainApp() {
     socket.emit('find-stranger', {
       mode: selectedMode,
       tier: user?.tier || 'guest',
-      gender: gender || 'other'
+      gender: gender || 'other',
+      region: region || 'global'
     });
   };
 
@@ -278,7 +314,8 @@ function MainApp() {
       requeue: true,
       mode: activeMode,
       tier: user?.tier || 'guest',
-      gender: gender || 'other'
+      gender: gender || 'other',
+      region: region || 'global'
     });
   };
 
@@ -299,6 +336,7 @@ function MainApp() {
   };
 
   const handleSendMessage = (text) => {
+    sounds.playSent();
     const messageId = Date.now() + '-' + Math.random().toString(36).substr(2, 5);
     const timestamp = Date.now();
 
@@ -335,6 +373,7 @@ function MainApp() {
     const nextMuted = !isSoundMuted;
     setIsSoundMuted(nextMuted);
     sounds.setMuted(nextMuted);
+    sounds.playToggle(!nextMuted);
   };
 
   const handleShareUrl = (url) => {
@@ -409,6 +448,7 @@ function MainApp() {
         onOpenShortcuts={() => setIsShortcutsOpen(true)}
         onOpenAuth={() => setIsAuthOpen(true)}
         onOpenPriority={() => setIsPriorityOpen(true)}
+        onOpenShare={() => setIsShareOpen(true)}
         appState={appState}
         onGoHome={handleLeave}
       />
@@ -423,6 +463,8 @@ function MainApp() {
             setSelectedMode={setSelectedMode}
             gender={gender}
             setGender={handleSetGender}
+            region={region}
+            setRegion={handleSetRegion}
             onStartSearch={handleStartSearch}
             localStream={localStream}
             isMuted={isMuted}
@@ -471,6 +513,7 @@ function MainApp() {
                   isDataChannelReady={isDataChannelReady}
                   partnerTier={partnerTier}
                   partnerGender={partnerGender}
+                  partnerRegion={partnerRegion}
                 />
               </div>
             )}
@@ -507,6 +550,7 @@ function MainApp() {
                 isDataChannelReady={isDataChannelReady}
                 partnerTier={partnerTier}
                 partnerGender={partnerGender}
+                partnerRegion={partnerRegion}
               />
             </div>
 
@@ -572,6 +616,12 @@ function MainApp() {
         mode={appState === 'matched' ? activeMode : selectedMode}
       />
 
+      {/* Direct Share & Bookmark Modal */}
+      <ShareModal
+        isOpen={isShareOpen}
+        onClose={() => setIsShareOpen(false)}
+      />
+
     </div>
   );
 }
@@ -579,7 +629,11 @@ function MainApp() {
 export default function App() {
   return (
     <AuthProvider>
-      <MainApp />
+      <LanguageProvider>
+        <AdProvider>
+          <MainApp />
+        </AdProvider>
+      </LanguageProvider>
     </AuthProvider>
   );
 }

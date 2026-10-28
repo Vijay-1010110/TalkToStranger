@@ -1,7 +1,8 @@
 /**
  * In-Memory Matchmaker for TalkToStranger
  * Ultra-fast queueing algorithm supporting text, audio, and video modes
- * with Priority queue acceleration, gender metadata, and instant FIFO pairing.
+ * with Priority queue acceleration, gender metadata, optional Region/Country matching,
+ * and smart instant FIFO pairing.
  */
 
 class Matchmaker {
@@ -18,14 +19,14 @@ class Matchmaker {
       video: new Set()
     };
 
-    // User metadata: socketId -> { mode, tier, gender, joinedAt }
+    // User metadata: socketId -> { mode, tier, gender, region, joinedAt }
     this.users = new Map();
 
-    // Active matches: socketId -> { partnerId, roomId, mode, matchedAt }
+    // Active matches: socketId -> { partnerId, roomId, mode, partnerTier, partnerGender, partnerRegion, matchedAt }
     this.matches = new Map();
   }
 
-  addUser(socketId, mode = 'video', tier = 'guest', gender = 'other') {
+  addUser(socketId, mode = 'video', tier = 'guest', gender = 'other', region = 'global') {
     if (!['chat', 'audio', 'video'].includes(mode)) {
       mode = 'video';
     }
@@ -34,6 +35,7 @@ class Matchmaker {
       mode,
       tier,
       gender: gender || 'other',
+      region: region || 'global',
       joinedAt: Date.now()
     });
 
@@ -45,19 +47,46 @@ class Matchmaker {
     const priorityQueue = this.priorityQueues[mode];
     if (!queue || !priorityQueue) return null;
 
+    const currentUser = this.users.get(socketId) || {
+      mode,
+      tier,
+      gender: 'other',
+      region: 'global',
+      joinedAt: Date.now()
+    };
+
     let bestMatchId = null;
 
-    // Search order: Check priority queue first, then general queue
+    // Search order: Priority queue first, then general queue
     const candidatePools = [priorityQueue, queue];
 
-    for (const pool of candidatePools) {
-      for (const candidateId of pool) {
-        if (candidateId !== socketId) {
-          bestMatchId = candidateId;
-          break;
+    // PASS 1: If user chose a specific region, prioritize an exact country match!
+    if (currentUser.region && currentUser.region !== 'global') {
+      for (const pool of candidatePools) {
+        for (const candidateId of pool) {
+          if (candidateId !== socketId) {
+            const candidateUser = this.users.get(candidateId);
+            if (candidateUser && candidateUser.region === currentUser.region) {
+              bestMatchId = candidateId;
+              break;
+            }
+          }
         }
+        if (bestMatchId) break;
       }
-      if (bestMatchId) break;
+    }
+
+    // PASS 2: If no exact region match (or user picked 'global'), match with any available candidate
+    if (!bestMatchId) {
+      for (const pool of candidatePools) {
+        for (const candidateId of pool) {
+          if (candidateId !== socketId) {
+            bestMatchId = candidateId;
+            break;
+          }
+        }
+        if (bestMatchId) break;
+      }
     }
 
     if (bestMatchId) {
@@ -68,8 +97,7 @@ class Matchmaker {
       priorityQueue.delete(socketId);
 
       const roomId = `room_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-      const candidateUser = this.users.get(bestMatchId);
-      const currentUser = this.users.get(socketId);
+      const candidateUser = this.users.get(bestMatchId) || { tier: 'guest', gender: 'other', region: 'global' };
 
       const matchData = {
         roomId,
@@ -79,15 +107,17 @@ class Matchmaker {
 
       this.matches.set(socketId, {
         partnerId: bestMatchId,
-        partnerTier: candidateUser ? candidateUser.tier : 'guest',
-        partnerGender: candidateUser ? candidateUser.gender : 'other',
+        partnerTier: candidateUser.tier || 'guest',
+        partnerGender: candidateUser.gender || 'other',
+        partnerRegion: candidateUser.region || 'global',
         ...matchData
       });
 
       this.matches.set(bestMatchId, {
         partnerId: socketId,
-        partnerTier: currentUser ? currentUser.tier : 'guest',
-        partnerGender: currentUser ? currentUser.gender : 'other',
+        partnerTier: currentUser.tier || 'guest',
+        partnerGender: currentUser.gender || 'other',
+        partnerRegion: currentUser.region || 'global',
         ...matchData
       });
 
@@ -95,10 +125,12 @@ class Matchmaker {
         matched: true,
         user1: socketId,
         user2: bestMatchId,
-        user1Tier: currentUser ? currentUser.tier : 'guest',
-        user2Tier: candidateUser ? candidateUser.tier : 'guest',
-        user1Gender: currentUser ? currentUser.gender : 'other',
-        user2Gender: candidateUser ? candidateUser.gender : 'other',
+        user1Tier: currentUser.tier || 'guest',
+        user2Tier: candidateUser.tier || 'guest',
+        user1Gender: currentUser.gender || 'other',
+        user2Gender: candidateUser.gender || 'other',
+        user1Region: currentUser.region || 'global',
+        user2Region: candidateUser.region || 'global',
         roomId,
         mode
       };
