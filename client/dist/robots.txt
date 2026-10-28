@@ -3,5 +3,15 @@ User-agent: *
 Allow: /
 Disallow: /api/
 
+# Explicitly allow Googlebot and Google Inspection Tool
+User-agent: Googlebot
+Allow: /
+Disallow: /api/
+
+User-agent: Googlebot-Mobile
+Allow: /
+Disallow: /api/
+
 # Sitemap location
 Sitemap: https://talktostranger-9my8.onrender.com/sitemap.xml
+
