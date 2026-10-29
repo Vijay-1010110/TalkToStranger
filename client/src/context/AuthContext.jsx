@@ -3,6 +3,11 @@ import { safeStorage } from '../utils/safeStorage';
 
 const AuthContext = createContext(null);
 
+const API_BASE_URL =
+  typeof window !== 'undefined' && window.location.hostname.endsWith('github.io')
+    ? 'https://talktostranger-9my8.onrender.com'
+    : '';
+
 export function AuthProvider({ children }) {
   // Pre-seed an anonymous guest so the app can render instantly with zero delay
   const [user, setUser] = useState(() => ({
@@ -31,7 +36,7 @@ export function AuthProvider({ children }) {
           try {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 2500);
-            const res = await fetch('/api/auth/me', {
+            const res = await fetch(`${API_BASE_URL}/api/auth/me`, {
               headers: { Authorization: `Bearer ${storedToken}` },
               signal: controller.signal
             });
@@ -71,7 +76,7 @@ export function AuthProvider({ children }) {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 2500);
-      const res = await fetch('/api/auth/guest', {
+      const res = await fetch(`${API_BASE_URL}/api/auth/guest`, {
         method: 'POST',
         signal: controller.signal
       });
@@ -89,7 +94,7 @@ export function AuthProvider({ children }) {
   };
 
   const login = async (loginVal, password) => {
-    const res = await fetch('/api/auth/login', {
+    const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ login: loginVal, password })
@@ -107,7 +112,7 @@ export function AuthProvider({ children }) {
   };
 
   const register = async (username, email, password) => {
-    const res = await fetch('/api/auth/register', {
+    const res = await fetch(`${API_BASE_URL}/api/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, email, password })
@@ -141,7 +146,7 @@ export function AuthProvider({ children }) {
       throw new Error('Please create an account before activating Priority Pass.');
     }
 
-    const res = await fetch('/api/auth/upgrade-priority', {
+    const res = await fetch(`${API_BASE_URL}/api/auth/upgrade-priority`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}` }
     });

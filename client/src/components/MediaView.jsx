@@ -14,22 +14,28 @@ export default function MediaView({
   isDataChannelReady,
   partnerTier,
   partnerGender,
-  partnerRegion = 'global'
+  partnerRegion = 'global',
+  canvasLayout = 'vertical',
+  onLayoutChange
 }) {
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const [isAutoplayBlocked, setIsAutoplayBlocked] = useState(false);
-  const [objectFit, setObjectFit] = useState('contain'); // 'contain' for zero crop or 'cover' for full bleed
-  const [canvasLayout, setCanvasLayout] = useState(() => {
-    const saved = safeStorage.getItem('stranger_video_layout');
-    if (saved === 'split') return 'vertical';
-    return saved || 'vertical';
-  }); // 'vertical' (stacked top/bottom) | 'horizontal' (side-by-side) | 'pip' (normal: stranger large, self small)
+  const [objectFit, setObjectFit] = useState(() => safeStorage.getItem('stranger_video_fit') || 'cover'); // 'cover' fills entire frame with zero black side bars
+
+  const toggleObjectFit = () => {
+    setObjectFit((prev) => {
+      const next = prev === 'cover' ? 'contain' : 'cover';
+      safeStorage.setItem('stranger_video_fit', next);
+      return next;
+    });
+  };
 
   // Switch layout mode
   const handleLayoutChange = (nextLayout) => {
-    setCanvasLayout(nextLayout);
-    safeStorage.setItem('stranger_video_layout', nextLayout);
+    if (onLayoutChange) {
+      onLayoutChange(nextLayout);
+    }
   };
 
   // Sync local stream
@@ -155,17 +161,18 @@ export default function MediaView({
   // Helper for rendering Stranger Video Box
   const renderStrangerPane = () => (
     <div className="relative w-full h-full rounded-lg border border-[#334155] bg-[#070b14] overflow-hidden flex items-center justify-center shadow-md">
-      {remoteStream ? (
-        <video
-          ref={remoteVideoRef}
-          autoPlay
-          playsInline
-          className={`w-full h-full ${objectFit === 'cover' ? 'object-cover' : 'object-contain'}`}
-          onDoubleClick={() => setObjectFit((prev) => (prev === 'cover' ? 'contain' : 'cover'))}
-        />
-      ) : (
-        <div className="text-xs font-mono text-slate-500">
-          Connecting video stream...
+      <video
+        ref={remoteVideoRef}
+        autoPlay
+        playsInline
+        className={`w-full h-full ${objectFit === 'cover' ? 'object-cover' : 'object-contain'} ${!remoteStream ? 'hidden' : 'block'}`}
+        onDoubleClick={toggleObjectFit}
+      />
+
+      {!remoteStream && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-xs font-mono text-slate-400 bg-[#070b14] z-10">
+          <div className="w-5 h-5 border-2 border-sky-400 border-t-transparent rounded-full animate-spin"></div>
+          <span>Connecting video &amp; audio...</span>
         </div>
       )}
 
@@ -275,9 +282,9 @@ export default function MediaView({
         {/* Fit / Fill Toggle */}
         <button
           type="button"
-          onClick={() => setObjectFit((prev) => (prev === 'cover' ? 'contain' : 'cover'))}
+          onClick={toggleObjectFit}
           title={objectFit === 'cover' ? 'Fit video to frame' : 'Fill entire frame'}
-          className="px-2 py-1 rounded bg-[#1e293b]/90 border border-[#334155] text-[10px] font-mono text-slate-300 hover:text-white backdrop-blur-sm"
+          className="px-2 py-1 rounded bg-[#1e293b]/90 border border-[#334155] text-[10px] font-mono text-slate-300 hover:text-white backdrop-blur-sm cursor-pointer"
         >
           {objectFit === 'cover' ? 'FIT' : 'FILL'}
         </button>
@@ -309,17 +316,18 @@ export default function MediaView({
       {canvasLayout === 'pip' && (
         <div className="relative w-full h-full flex items-center justify-center bg-[#0b101c]">
           {/* Large Target Video (Stranger) */}
-          {remoteStream ? (
-            <video
-              ref={remoteVideoRef}
-              autoPlay
-              playsInline
-              className={`w-full h-full ${objectFit === 'cover' ? 'object-cover' : 'object-contain'}`}
-              onDoubleClick={() => setObjectFit((prev) => (prev === 'cover' ? 'contain' : 'cover'))}
-            />
-          ) : (
-            <div className="text-xs font-mono text-slate-500">
-              Connecting video stream...
+          <video
+            ref={remoteVideoRef}
+            autoPlay
+            playsInline
+            className={`w-full h-full ${objectFit === 'cover' ? 'object-cover' : 'object-contain'} ${!remoteStream ? 'hidden' : 'block'}`}
+            onDoubleClick={() => setObjectFit((prev) => (prev === 'cover' ? 'contain' : 'cover'))}
+          />
+
+          {!remoteStream && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-xs font-mono text-slate-400 bg-[#070b14] z-10">
+              <div className="w-5 h-5 border-2 border-sky-400 border-t-transparent rounded-full animate-spin"></div>
+              <span>Connecting video &amp; audio...</span>
             </div>
           )}
 

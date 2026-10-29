@@ -79,7 +79,8 @@ export default function ChatPane({
   isDataChannelReady,
   partnerTier,
   partnerGender,
-  partnerRegion = 'global'
+  partnerRegion = 'global',
+  onClose
 }) {
   const { t } = useTranslation();
   const [inputText, setInputText] = useState('');
@@ -232,6 +233,17 @@ export default function ChatPane({
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-slate-400">{isDataChannelReady ? 'P2P DIRECT' : 'RELAY'}</span>
+          {onClose && (
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-2 py-0.5 rounded bg-[#334155] hover:bg-[#475569] text-white text-[10px] font-mono flex items-center gap-1 transition-colors cursor-pointer"
+              title="Hide Chat to Maximize Video"
+            >
+              <X className="w-3 h-3" />
+              <span>Hide</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -430,8 +442,8 @@ export default function ChatPane({
         </div>
       )}
 
-      {/* Quick Toolbar (Starters, Random, Emojis) */}
-      <div className="px-2 py-1 bg-[#1e293b]/90 border-t border-[#334155]/70 flex items-center justify-between gap-1 text-[11px] font-mono shrink-0">
+      {/* Quick Toolbar (Starters, Random, Emojis) - Hidden on mobile/vertical screens to maximize viewing space */}
+      <div className="hidden md:flex px-2 py-1 bg-[#1e293b]/90 border-t border-[#334155]/70 items-center justify-between gap-1 text-[11px] font-mono shrink-0">
         
         {/* Left helper tools */}
         <div className="flex items-center gap-1">
@@ -491,7 +503,7 @@ export default function ChatPane({
               type="button"
               disabled={!isMatched}
               onClick={() => handleDirectSendEmoji(emoji)}
-              className="text-sm px-1.5 py-0.5 rounded hover:bg-[#334155] disabled:opacity-30 active:scale-125 transition-transform"
+              className="text-sm px-1.5 py-0.5 rounded hover:bg-[#334155] disabled:opacity-30 active:scale-125 transition-transform cursor-pointer"
               title={`Send ${emoji} instantly`}
             >
               {emoji}
@@ -504,8 +516,21 @@ export default function ChatPane({
       {/* Input Form */}
       <form
         onSubmit={handleFormSubmit}
-        className="p-2 border-t border-[#334155] bg-[#1e293b] flex items-center gap-1.5 shrink-0"
+        className="p-1.5 sm:p-2 border-t border-[#334155] bg-[#1e293b] flex items-center gap-1 sm:gap-1.5 shrink-0"
       >
+        <button
+          type="button"
+          onClick={() => {
+            setShowEmojiPicker((prev) => !prev);
+            setShowStarters(false);
+          }}
+          disabled={!isMatched}
+          className="p-1 sm:p-1.5 rounded text-slate-400 hover:text-white hover:bg-[#334155] disabled:opacity-30 transition-colors cursor-pointer"
+          title="Open emoji keyboard"
+        >
+          <Smile className="w-4 h-4 text-sky-400" />
+        </button>
+
         <input
           ref={inputRef}
           type="text"
@@ -513,12 +538,12 @@ export default function ChatPane({
           onChange={handleInputChange}
           disabled={!isMatched}
           placeholder={isMatched ? 'Type message & press Enter...' : 'Connecting with stranger...'}
-          className="flex-1 bg-[#0f172a] border border-[#334155] focus:border-sky-400 rounded px-2.5 py-1.5 sm:py-2 text-xs text-white placeholder-slate-500 outline-none font-sans disabled:opacity-40 transition-colors"
+          className="flex-1 bg-[#0f172a] border border-[#334155] focus:border-sky-400 rounded px-2.5 py-1.5 text-xs text-white placeholder-slate-500 outline-none font-sans disabled:opacity-40 transition-colors"
         />
         <button
           type="submit"
           disabled={!inputText.trim() || !isMatched}
-          className="p-1.5 sm:p-2 rounded bg-white hover:bg-slate-100 disabled:opacity-20 text-slate-900 transition-colors shrink-0 font-mono text-xs font-semibold flex items-center gap-1 shadow-sm"
+          className="p-1.5 sm:p-2 rounded bg-white hover:bg-slate-100 disabled:opacity-20 text-slate-900 transition-colors shrink-0 font-mono text-xs font-semibold flex items-center gap-1 shadow-sm cursor-pointer"
           title="Send"
         >
           <Send className="w-3.5 h-3.5" />

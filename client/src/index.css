@@ -38,7 +38,8 @@
   transform: scaleX(-1);
 }
 
-/* Ensure ad widgets and social bars never block or affect call canvases during active calls */
+/* Ensure ad widgets, push notifications and social bars never block or affect call canvases during active calls */
+body.in-call-active > *:not(#root):not(script):not(style),
 body.in-call-active [id*="adsterra"],
 body.in-call-active [class*="adsterra"],
 body.in-call-active [id*="bicea"],
@@ -46,10 +47,13 @@ body.in-call-active [class*="bicea"],
 body.in-call-active [id^="container-3d7bf507891aa663927ad695241840fa"],
 body.in-call-active [class*="social-bar"],
 body.in-call-active [id*="socialbar"],
+body.in-call-active [class*="inpage"],
+body.in-call-active [id*="inpage"],
 body.in-call-active [id*="push-alert"],
 body.in-call-active [id*="notif-bar"],
 body.in-call-active div[style*="z-index: 2147483647"]:not([data-app-modal]),
-body.in-call-active div[style*="z-index: 999999"]:not([data-app-modal]) {
+body.in-call-active div[style*="z-index: 999999"]:not([data-app-modal]),
+body.in-call-active div[style*="position: fixed"]:not([data-app-modal]):not([data-app-overlay]):not(#root *) {
   display: none !important;
   visibility: hidden !important;
   pointer-events: none !important;
@@ -57,4 +61,7 @@ body.in-call-active div[style*="z-index: 999999"]:not([data-app-modal]) {
   height: 0 !important;
   width: 0 !important;
   overflow: hidden !important;
+  position: absolute !important;
+  top: -99999px !important;
+  left: -99999px !important;
 }

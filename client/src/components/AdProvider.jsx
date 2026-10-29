@@ -12,20 +12,63 @@ export function AdProvider({ children, inCall = false }) {
   const { isPriority } = useAuth();
   const isAdFree = Boolean(isPriority || !AD_CONFIG.enabled || inCall);
 
-  // During call, ensure in-call-active class is added to body to suppress all floating ad overlays
+  // During call, ensure in-call-active class is added to body and actively sweep any floating ad overlays
   useEffect(() => {
-    if (typeof document !== 'undefined') {
-      if (inCall) {
-        document.body.classList.add('in-call-active');
-      } else {
+    if (typeof document === 'undefined') return;
+
+    if (inCall) {
+      document.body.classList.add('in-call-active');
+
+      const purgeFloatingAds = () => {
+        try {
+          // 1. Purge all direct non-#root children of document.body
+          const children = Array.from(document.body.children);
+          children.forEach((el) => {
+            if (el.id !== 'root' && el.tagName !== 'SCRIPT' && el.tagName !== 'STYLE') {
+              el.style.display = 'none';
+              el.style.visibility = 'hidden';
+              el.style.pointerEvents = 'none';
+              try { el.remove(); } catch (e) {}
+            }
+          });
+
+          // 2. Query any fixed/absolute floating overlays injected by ad networks
+          const floatingOverlays = document.querySelectorAll(
+            '[class*="bicea"], [id*="bicea"], [class*="adsterra"], [id*="adsterra"], [class*="inpage"], [id*="inpage"], [class*="socialbar"], [id*="socialbar"], [class*="notification-bar"], div[style*="z-index: 2147483647"], div[style*="z-index: 999999"]'
+          );
+          floatingOverlays.forEach((el) => {
+            if (!el.hasAttribute('data-app-modal') && !el.hasAttribute('data-app-overlay')) {
+              el.style.display = 'none';
+              el.style.visibility = 'hidden';
+              el.style.pointerEvents = 'none';
+              try { el.remove(); } catch (e) {}
+            }
+          });
+        } catch (e) {}
+      };
+
+      purgeFloatingAds();
+      const interval = setInterval(purgeFloatingAds, 250);
+
+      // Instant MutationObserver to kill floating ads the exact millisecond they inject
+      let observer = null;
+      try {
+        observer = new MutationObserver(() => {
+          purgeFloatingAds();
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+      } catch (e) {}
+
+      return () => {
+        clearInterval(interval);
+        if (observer) {
+          try { observer.disconnect(); } catch (e) {}
+        }
         document.body.classList.remove('in-call-active');
-      }
+      };
+    } else {
+      document.body.classList.remove('in-call-active');
     }
-    return () => {
-      if (typeof document !== 'undefined') {
-        document.body.classList.remove('in-call-active');
-      }
-    };
   }, [inCall]);
 
   // Inject global network scripts (Adsterra Social Bar) ONLY when outside of calls and if user is not Priority

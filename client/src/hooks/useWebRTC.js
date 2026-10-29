@@ -447,16 +447,15 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
       if (signal.type === 'offer') {
         console.log('[WebRTC] Handling offer signal from partner');
         const sdpStr = typeof signal.sdp === 'string' ? signal.sdp : (signal.sdp?.sdp || '');
-        const desc = new RTCSessionDescription({ type: 'offer', sdp: sdpStr });
 
         if (pc.signalingState !== 'stable') {
           console.warn('[WebRTC] Offer in state:', pc.signalingState);
           await Promise.all([
             pc.setLocalDescription({ type: 'rollback' }).catch(() => {}),
-            pc.setRemoteDescription(desc)
+            pc.setRemoteDescription({ type: 'offer', sdp: sdpStr })
           ]);
         } else {
-          await pc.setRemoteDescription(desc);
+          await pc.setRemoteDescription({ type: 'offer', sdp: sdpStr });
         }
 
         // Drain queued ICE candidates
@@ -483,10 +482,9 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
       } else if (signal.type === 'answer') {
         console.log('[WebRTC] Handling answer signal from partner, state:', pc.signalingState);
         const sdpStr = typeof signal.sdp === 'string' ? signal.sdp : (signal.sdp?.sdp || '');
-        const desc = new RTCSessionDescription({ type: 'answer', sdp: sdpStr });
 
         if (pc.signalingState === 'have-local-offer') {
-          await pc.setRemoteDescription(desc);
+          await pc.setRemoteDescription({ type: 'answer', sdp: sdpStr });
 
           while (iceCandidateQueueRef.current.length > 0) {
             const candidate = iceCandidateQueueRef.current.shift();
@@ -501,16 +499,16 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
         }
       } else if (signal.type === 'ice-candidate') {
         const candidateData = signal.candidate;
-        if (candidateData) {
+        if (candidateData && (candidateData.candidate || typeof candidateData === 'string')) {
           try {
-            const cand = (typeof candidateData === 'object' && candidateData.candidate)
-              ? new RTCIceCandidate(candidateData)
+            const candidateObj = typeof candidateData === 'string'
+              ? { candidate: candidateData, sdpMid: '0', sdpMLineIndex: 0 }
               : candidateData;
 
             if (pc.remoteDescription && pc.remoteDescription.type) {
-              await pc.addIceCandidate(cand);
+              await pc.addIceCandidate(candidateObj);
             } else {
-              iceCandidateQueueRef.current.push(cand);
+              iceCandidateQueueRef.current.push(candidateObj);
             }
           } catch (e) {
             console.warn('[WebRTC] addIceCandidate error:', e);
@@ -536,7 +534,19 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
 
   // Create Peer Connection
   const createPeerConnection = useCallback((partnerId, iceServers, mode, stream) => {
-    cleanupPeerConnection();
+    // Gracefully close previous active connection without destroying queued signals
+    if (animFrameRef.current) {
+      cancelAnimationFrame(animFrameRef.current);
+    }
+    if (dataChannelRef.current) {
+      try { dataChannelRef.current.close(); } catch {}
+      dataChannelRef.current = null;
+    }
+    if (pcRef.current) {
+      try { pcRef.current.close(); } catch {}
+      pcRef.current = null;
+    }
+
     partnerIdRef.current = partnerId;
     remoteMediaStreamRef.current = new MediaStream();
 
@@ -547,10 +557,17 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
 
     pcRef.current = pc;
 
+    // Immediately handle incoming data channel on receiver side without race
+    pc.ondatachannel = (event) => {
+      console.log('[WebRTC] Receiver datachannel arrived via ondatachannel');
+      setupDataChannelEvents(event.channel);
+    };
+
     // Attach local stream tracks if available
     const activeStream = stream || localStreamRef.current;
     if (activeStream && mode !== 'chat') {
-      activeStream.getTracks().forEach((track) => {
+      const liveTracks = activeStream.getTracks().filter(t => t.readyState === 'live');
+      liveTracks.forEach((track) => {
         try {
           pc.addTrack(track, activeStream);
         } catch (e) {
@@ -655,7 +672,7 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
     };
 
     return pc;
-  }, [cleanupPeerConnection, socket, onConnectionStateChange]);
+  }, [cleanupPeerConnection, socket, onConnectionStateChange, setupDataChannelEvents]);
 
   // Start Call after Match Found
   const startConnection = useCallback(async ({ partnerId, isInitiator, iceServers, mode, existingStream }) => {

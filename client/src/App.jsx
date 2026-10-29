@@ -30,7 +30,12 @@ if (!uniqueClientId) {
   safeStorage.setItem('stranger_unique_client_id', uniqueClientId);
 }
 
-const socket = io(typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000', {
+const socketServerUrl =
+  typeof window !== 'undefined' && window.location.hostname.endsWith('github.io')
+    ? 'https://talktostranger-9my8.onrender.com'
+    : typeof window !== 'undefined' ? window.location.origin : 'http://localhost:5000';
+
+const socket = io(socketServerUrl, {
   transports: ['websocket', 'polling'],
   auth: { clientId: uniqueClientId },
   query: { clientId: uniqueClientId }
@@ -53,6 +58,16 @@ function MainApp() {
   const [isSoundMuted, setIsSoundMuted] = useState(() => safeStorage.getItem('stranger_sound_muted') === 'true');
   const [appReady, setAppReady] = useState(false);
   const [forceReady, setForceReady] = useState(false);
+  const [canvasLayout, setCanvasLayout] = useState(() => {
+    const saved = safeStorage.getItem('stranger_video_layout');
+    if (saved === 'split') return 'vertical';
+    return saved || 'vertical';
+  });
+
+  const handleLayoutChange = (nextLayout) => {
+    setCanvasLayout(nextLayout);
+    safeStorage.setItem('stranger_video_layout', nextLayout);
+  };
 
   const handleSetGender = (val) => {
     setGender(val);
@@ -106,11 +121,50 @@ function MainApp() {
     return () => clearTimeout(timer);
   }, []);
 
+  // Chat toggle & mobile full-screen view state
+  const [isChatOpen, setIsChatOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768;
+    }
+    return false;
+  });
+  const isChatOpenRef = useRef(isChatOpen);
+  useEffect(() => {
+    isChatOpenRef.current = isChatOpen;
+  }, [isChatOpen]);
+
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [lastMessageToast, setLastMessageToast] = useState(null);
+  const toastTimeoutRef = useRef(null);
+
+  const showIncomingToast = useCallback((msg) => {
+    setLastMessageToast(msg);
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    toastTimeoutRef.current = setTimeout(() => {
+      setLastMessageToast(null);
+    }, 4500);
+  }, []);
+
+  const handleToggleChat = useCallback(() => {
+    setIsChatOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        setUnreadChatCount(0);
+        setLastMessageToast(null);
+      }
+      return next;
+    });
+  }, []);
+
   // Incoming P2P data messages handler
   const handleP2PDataMessage = useCallback((msg) => {
     sounds.playMessage();
     setMessages((prev) => [...prev, msg]);
-  }, []);
+    if (!isChatOpenRef.current) {
+      setUnreadChatCount((prev) => prev + 1);
+      showIncomingToast(msg);
+    }
+  }, [showIncomingToast]);
 
   const handleP2PTyping = useCallback((isTyping) => {
     setStrangerTyping(isTyping);
@@ -189,6 +243,16 @@ function MainApp() {
       setPartnerGender(data.partnerGender || 'other');
       setPartnerRegion(data.partnerRegion || 'global');
       setAppState('matched');
+      setUnreadChatCount(0);
+      setLastMessageToast(null);
+
+      // Default hide chat on mobile / vertical screens (< 768px) in video/audio mode to give maximum video canvas
+      if (typeof window !== 'undefined' && window.innerWidth < 768 && data.mode !== 'chat') {
+        setIsChatOpen(false);
+      } else {
+        setIsChatOpen(true);
+      }
+
       setMessages([
         {
           id: 'sys-start-' + Date.now(),
@@ -213,6 +277,10 @@ function MainApp() {
     socket.on('chat-message', (msg) => {
       sounds.playMessage();
       setMessages((prev) => [...prev, { ...msg, p2p: false }]);
+      if (!isChatOpenRef.current) {
+        setUnreadChatCount((prev) => prev + 1);
+        showIncomingToast(msg);
+      }
     });
 
     socket.on('stranger-typing', ({ isTyping }) => {
@@ -471,15 +539,47 @@ function MainApp() {
 
         {/* 3. MATCHED SCREEN */}
         {appState === 'matched' && (
-          <div className="flex-1 flex flex-col md:flex-row h-full w-full overflow-hidden min-h-0 bg-[#0f172a]">
+          <div className="flex-1 flex flex-col md:flex-row h-full w-full overflow-hidden min-h-0 bg-[#0f172a] relative">
             
+            {/* Incoming Message Floating Toast when Chat is Hidden on Mobile/Vertical */}
+            {lastMessageToast && !isChatOpen && activeMode !== 'chat' && (
+              <div
+                onClick={() => {
+                  setIsChatOpen(true);
+                  setUnreadChatCount(0);
+                  setLastMessageToast(null);
+                }}
+                className="absolute top-3 left-1/2 -translate-x-1/2 z-40 max-w-[92%] sm:max-w-md bg-[#0f172a]/95 border border-sky-400 text-white px-3.5 py-2 rounded-full shadow-2xl flex items-center gap-2 cursor-pointer animate-in fade-in slide-in-from-top duration-200 backdrop-blur-md"
+              >
+                <div className="w-2 h-2 rounded-full bg-sky-400 animate-pulse shrink-0" />
+                <span className="text-xs truncate">
+                  <strong className="text-sky-300">Stranger:</strong> {lastMessageToast.text}
+                </span>
+                <span className="text-[10px] bg-sky-500 hover:bg-sky-400 text-white px-2 py-0.5 rounded-full font-mono font-bold shrink-0 ml-1">
+                  Open Chat
+                </span>
+              </div>
+            )}
+
             {/* Left Media Area: In video/voice mode */}
             {activeMode !== 'chat' && (
               <div
                 className={`
-                  flex flex-col border-[#334155] min-h-0
-                  ${/* Mobile portrait: stacked top 38% */ 'h-[38%] md:h-full w-full border-b md:border-b-0'}
-                  ${/* Tablet & Desktop: side-by-side */ isWebShareOpen ? 'md:w-2/5' : 'md:w-3/5 lg:w-2/3 md:border-r'}
+                  flex flex-col border-[#334155] min-h-0 transition-all duration-300
+                  ${/* When chat is hidden, video gets 100% full height. When open, 42% on mobile */
+                    !isChatOpen ? 'h-full w-full flex-1' : 'h-[42%] md:h-full w-full border-b md:border-b-0'
+                  }
+                  ${
+                    isWebShareOpen
+                      ? 'md:w-2/5'
+                      : !isChatOpen
+                      ? 'md:w-full'
+                      : canvasLayout === 'vertical'
+                      ? 'md:w-[380px] lg:w-[420px] xl:w-[460px] md:border-r'
+                      : canvasLayout === 'horizontal'
+                      ? 'md:w-3/5 lg:w-2/3 xl:w-3/4 md:border-r'
+                      : 'md:w-1/2 lg:w-3/5 md:border-r'
+                  }
                   ${/* Passport/Square Foldables */ '[aspect-ratio:1/1]:w-1/2 [aspect-ratio:1/1]:h-full [aspect-ratio:1/1]:border-r [aspect-ratio:1/1]:border-b-0'}
                   ${/* Landscape Phone */ 'landscape:max-md:w-1/2 landscape:max-md:h-full landscape:max-md:border-r landscape:max-md:border-b-0'}
                 `}
@@ -497,6 +597,8 @@ function MainApp() {
                   partnerTier={partnerTier}
                   partnerGender={partnerGender}
                   partnerRegion={partnerRegion}
+                  canvasLayout={canvasLayout}
+                  onLayoutChange={handleLayoutChange}
                 />
               </div>
             )}
@@ -516,26 +618,29 @@ function MainApp() {
             )}
 
             {/* Right Chat Area */}
-            <div
-              className={`
-                flex flex-col min-h-0
-                ${activeMode === 'chat' ? 'w-full h-full' : 'flex-1 h-[62%] md:h-full'}
-                ${/* Passport/Square Foldables */ '[aspect-ratio:1/1]:w-1/2 [aspect-ratio:1/1]:h-full'}
-                ${/* Landscape Phone */ 'landscape:max-md:w-1/2 landscape:max-md:h-full'}
-              `}
-            >
-              <ChatPane
-                messages={messages}
-                onSendMessage={handleSendMessage}
-                onTyping={handleTyping}
-                strangerTyping={strangerTyping}
-                isMatched={appState === 'matched'}
-                isDataChannelReady={isDataChannelReady}
-                partnerTier={partnerTier}
-                partnerGender={partnerGender}
-                partnerRegion={partnerRegion}
-              />
-            </div>
+            {(isChatOpen || activeMode === 'chat') && (
+              <div
+                className={`
+                  flex flex-col min-h-0
+                  ${activeMode === 'chat' ? 'w-full h-full' : 'flex-1 h-[58%] md:h-full'}
+                  ${/* Passport/Square Foldables */ '[aspect-ratio:1/1]:w-1/2 [aspect-ratio:1/1]:h-full'}
+                  ${/* Landscape Phone */ 'landscape:max-md:w-1/2 landscape:max-md:h-full'}
+                `}
+              >
+                <ChatPane
+                  messages={messages}
+                  onSendMessage={handleSendMessage}
+                  onTyping={handleTyping}
+                  strangerTyping={strangerTyping}
+                  isMatched={appState === 'matched'}
+                  isDataChannelReady={isDataChannelReady}
+                  partnerTier={partnerTier}
+                  partnerGender={partnerGender}
+                  partnerRegion={partnerRegion}
+                  onClose={activeMode !== 'chat' ? handleToggleChat : null}
+                />
+              </div>
+            )}
 
           </div>
         )}
@@ -556,6 +661,9 @@ function MainApp() {
           onOpenDeviceSettings={() => setIsDeviceSettingsOpen(true)}
           isWebShareOpen={isWebShareOpen}
           toggleWebShare={toggleWebShare}
+          isChatOpen={isChatOpen}
+          onToggleChat={handleToggleChat}
+          unreadChatCount={unreadChatCount}
         />
       )}
 
