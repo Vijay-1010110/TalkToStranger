@@ -552,7 +552,9 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
 
     const pc = new RTCPeerConnection({
       iceServers: iceServers && iceServers.length > 0 ? iceServers : DEFAULT_ICE_SERVERS,
-      iceCandidatePoolSize: 10
+      iceCandidatePoolSize: 10,
+      bundlePolicy: 'max-bundle',
+      rtcpMuxPolicy: 'require'
     });
 
     pcRef.current = pc;
@@ -595,18 +597,34 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
 
     pc.ontrack = (event) => {
       console.log('[WebRTC] ontrack received:', event.track.kind, event.track.id);
+
+      // 1. Prefer native stream provided by browser
+      if (event.streams && event.streams[0]) {
+        const nativeStream = event.streams[0];
+        remoteMediaStreamRef.current = nativeStream;
+        setRemoteStream(nativeStream);
+        setupAudioAnalyser(nativeStream, false);
+
+        event.track.onended = () => {
+          setRemoteStream(new MediaStream(nativeStream.getTracks()));
+        };
+        event.track.onunmute = () => {
+          setRemoteStream(nativeStream);
+        };
+        return;
+      }
+
+      // 2. Stable fallback stream when event.streams is empty
       let persistentStream = remoteMediaStreamRef.current;
       if (!persistentStream) {
         persistentStream = new MediaStream();
         remoteMediaStreamRef.current = persistentStream;
       }
 
-      // Deduplicate tracks of the same kind
+      // Deduplicate tracks of same kind
       persistentStream.getTracks().forEach((track) => {
         if (track.kind === event.track.kind && track.id !== event.track.id) {
-          try {
-            persistentStream.removeTrack(track);
-          } catch (e) {}
+          try { persistentStream.removeTrack(track); } catch (e) {}
         }
       });
 
@@ -616,10 +634,8 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
         console.warn('[WebRTC] Error adding track to persistent remote stream:', e);
       }
 
-      // Create new MediaStream instance so React state change fires render reliably
-      const updatedStream = new MediaStream(persistentStream.getTracks());
-      setRemoteStream(updatedStream);
-      setupAudioAnalyser(updatedStream, false);
+      setRemoteStream(persistentStream);
+      setupAudioAnalyser(persistentStream, false);
 
       event.track.onended = () => {
         try {
@@ -629,7 +645,7 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
       };
 
       event.track.onunmute = () => {
-        setRemoteStream(new MediaStream(persistentStream.getTracks()));
+        setRemoteStream(persistentStream);
       };
     };
 

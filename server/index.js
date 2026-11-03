@@ -20,10 +20,46 @@ const DEFAULT_ICE_SERVERS = [
   { urls: 'stun:global.stun.twilio.com:3478' }
 ];
 
+let cachedMeteredServers = [];
+let lastMeteredFetch = 0;
+
+// Dynamic Metered TURN fetcher (provides seamless symmetric NAT & VPN traversal)
+async function refreshMeteredTurn() {
+  const apiKey = process.env.METERED_API_KEY;
+  const appName = process.env.METERED_APP_NAME;
+
+  if (apiKey && appName) {
+    try {
+      const url = `https://${appName}.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`;
+      const res = await fetch(url);
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          cachedMeteredServers = data;
+          lastMeteredFetch = Date.now();
+          console.log(`[WebRTC TURN] Successfully loaded ${data.length} dynamic TURN relay servers from Metered`);
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn('[WebRTC TURN] Could not refresh Metered TURN credentials:', err.message);
+    }
+  }
+}
+
+// Refresh immediately and then every 30 minutes
+refreshMeteredTurn();
+setInterval(refreshMeteredTurn, 30 * 60 * 1000);
+
 function getIceServers() {
   const servers = [...DEFAULT_ICE_SERVERS];
 
-  // Support custom TURN relay servers (e.g. from Render or local .env)
+  // 1. Prioritize dynamic Metered TURN credentials if configured
+  if (cachedMeteredServers.length > 0) {
+    servers.unshift(...cachedMeteredServers);
+  }
+
+  // 2. Support custom self-hosted Coturn / TURN relay servers via env
   if (process.env.TURN_URLS) {
     const urls = process.env.TURN_URLS.split(',').map((u) => u.trim());
     const turnEntry = { urls };
@@ -301,7 +337,7 @@ app.use((req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, () => {
   console.log(`[TalkToStranger] Server active on port ${PORT}`);
   console.log(`[Unique Tracking] Online user count tracks unique devices/browsers.`);
 });

@@ -38,37 +38,48 @@ export default function MediaView({
     }
   };
 
-  // Sync local stream
+  // Sync local stream safely without resetting playback on layout changes
   useEffect(() => {
-    if (localVideoRef.current && localStream) {
-      localVideoRef.current.srcObject = localStream;
+    const localVideo = localVideoRef.current;
+    if (localVideo && localStream) {
+      if (localVideo.srcObject !== localStream) {
+        localVideo.srcObject = localStream;
+      }
     }
   }, [localStream, canvasLayout]);
 
   // Sync remote stream & handle browser autoplay restrictions gracefully
   useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) {
-      remoteVideoRef.current.srcObject = remoteStream;
-      const playPromise = remoteVideoRef.current.play();
-      if (playPromise !== undefined) {
-        playPromise
-          .then(() => {
-            setIsAutoplayBlocked(false);
-          })
-          .catch((err) => {
-            console.warn('[MediaView] Remote media autoplay paused by browser policy:', err);
-            // Automatic recovery: mute remote element so video frames flow immediately
-            if (remoteVideoRef.current) {
-              remoteVideoRef.current.muted = true;
-              remoteVideoRef.current
-                .play()
-                .then(() => {
-                  setIsAutoplayBlocked(true);
-                })
-                .catch(() => {});
-            }
-          });
-      }
+    const remoteEl = remoteVideoRef.current;
+    if (!remoteEl || !remoteStream) return;
+
+    if (remoteEl.srcObject !== remoteStream) {
+      remoteEl.srcObject = remoteStream;
+    }
+
+    const playPromise = remoteEl.play();
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          setIsAutoplayBlocked(false);
+        })
+        .catch((err) => {
+          // If interrupted by a new track arriving or media pipeline reload, retry without muting
+          if (err.name === 'AbortError') {
+            remoteEl.play().catch(() => {});
+            return;
+          }
+
+          console.warn('[MediaView] Remote media autoplay paused by browser policy:', err);
+          // Only fallback to muted video if browser strictly blocked unprompted sound
+          remoteEl.muted = true;
+          remoteEl
+            .play()
+            .then(() => {
+              setIsAutoplayBlocked(true);
+            })
+            .catch(() => {});
+        });
     }
   }, [remoteStream, canvasLayout]);
 
