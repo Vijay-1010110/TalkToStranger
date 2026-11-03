@@ -561,8 +561,22 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
     partnerIdRef.current = partnerId;
     remoteMediaStreamRef.current = new MediaStream();
 
+    // Ensure TURN servers are always present for VPN/symmetric NAT traversal
+    const finalIceServers = (iceServers && iceServers.length > 0) ? [...iceServers] : [...DEFAULT_ICE_SERVERS];
+    const hasTurn = finalIceServers.some(s => {
+      const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
+      return urls.some(u => typeof u === 'string' && u.toLowerCase().startsWith('turn'));
+    });
+    if (!hasTurn) {
+      const turnServers = DEFAULT_ICE_SERVERS.filter(s => {
+        const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
+        return urls.some(u => typeof u === 'string' && u.toLowerCase().startsWith('turn'));
+      });
+      finalIceServers.unshift(...turnServers);
+    }
+
     const pc = new RTCPeerConnection({
-      iceServers: iceServers && iceServers.length > 0 ? iceServers : DEFAULT_ICE_SERVERS,
+      iceServers: finalIceServers,
       iceCandidatePoolSize: 10,
       bundlePolicy: 'max-bundle',
       rtcpMuxPolicy: 'require'
