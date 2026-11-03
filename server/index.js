@@ -59,13 +59,39 @@ function getIceServers() {
     servers.unshift(...cachedMeteredServers);
   }
 
-  // 2. Support custom self-hosted Coturn / TURN relay servers via env
-  if (process.env.TURN_URLS) {
+  // 2. Support custom self-hosted Coturn / Metered relay servers via env
+  if (process.env.TURN_USERNAME && process.env.TURN_CREDENTIAL) {
+    const urls = process.env.TURN_URLS
+      ? process.env.TURN_URLS.split(',').map((u) => u.trim())
+      : [
+          'turn:global.relay.metered.ca:80',
+          'turn:global.relay.metered.ca:443',
+          'turn:global.relay.metered.ca:443?transport=tcp',
+          'turns:global.relay.metered.ca:443?transport=tcp'
+        ];
+    servers.unshift({
+      urls,
+      username: process.env.TURN_USERNAME,
+      credential: process.env.TURN_CREDENTIAL
+    });
+  } else if (process.env.TURN_URLS) {
     const urls = process.env.TURN_URLS.split(',').map((u) => u.trim());
     const turnEntry = { urls };
     if (process.env.TURN_USERNAME) turnEntry.username = process.env.TURN_USERNAME;
     if (process.env.TURN_CREDENTIAL) turnEntry.credential = process.env.TURN_CREDENTIAL;
     servers.unshift(turnEntry);
+  }
+
+  // 3. Support raw JSON ICE servers array if provided
+  if (process.env.ICE_SERVERS_JSON) {
+    try {
+      const parsed = JSON.parse(process.env.ICE_SERVERS_JSON);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        servers.unshift(...parsed);
+      }
+    } catch (e) {
+      console.warn('[WebRTC ICE] Could not parse ICE_SERVERS_JSON:', e.message);
+    }
   }
 
   return servers;
