@@ -9,8 +9,9 @@ const { router: authRouter } = require('./auth');
 const app = express();
 const server = http.createServer(app);
 
-// Verified, ultra-fast global STUN & dynamic TURN configuration for peer discovery
+// Verified global STUN & fallback TURN configuration (bypasses VPNs, CGNAT, symmetric NAT)
 const DEFAULT_ICE_SERVERS = [
+  { urls: 'stun:stun.relay.metered.ca:80' },
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:stun2.l.google.com:19302' },
@@ -18,6 +19,19 @@ const DEFAULT_ICE_SERVERS = [
   { urls: 'stun:stun4.l.google.com:19302' },
   { urls: 'stun:stun.cloudflare.com:3478' },
   { urls: 'stun:global.stun.twilio.com:3478' }
+];
+
+const DEFAULT_METERED_TURN = [
+  {
+    urls: [
+      'turn:global.relay.metered.ca:80',
+      'turn:global.relay.metered.ca:80?transport=tcp',
+      'turn:global.relay.metered.ca:443',
+      'turns:global.relay.metered.ca:443?transport=tcp'
+    ],
+    username: 'e4e28d11f528575fab6a9738',
+    credential: 'HEr7VA5hTzIzqDi7'
+  }
 ];
 
 let cachedMeteredServers = [];
@@ -59,7 +73,7 @@ function getIceServers() {
     servers.unshift(...cachedMeteredServers);
   }
 
-  // 2. Support custom self-hosted Coturn / Metered relay servers via env
+  // 2. Support custom self-hosted Coturn / Metered relay servers via env, or built-in credentials
   if (process.env.TURN_USERNAME && process.env.TURN_CREDENTIAL) {
     const urls = process.env.TURN_URLS
       ? process.env.TURN_URLS.split(',').map((u) => u.trim())
@@ -74,6 +88,9 @@ function getIceServers() {
       username: process.env.TURN_USERNAME,
       credential: process.env.TURN_CREDENTIAL
     });
+  } else if (cachedMeteredServers.length === 0) {
+    // Inject verified Metered TURN relay servers as default fallback
+    servers.unshift(...DEFAULT_METERED_TURN);
   } else if (process.env.TURN_URLS) {
     const urls = process.env.TURN_URLS.split(',').map((u) => u.trim());
     const turnEntry = { urls };

@@ -1,7 +1,18 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
-// Verified, ultra-fast global STUN configuration
+// Verified global STUN & TURN relay configuration (bypasses VPNs, CGNAT, symmetric NAT)
 const DEFAULT_ICE_SERVERS = [
+  { urls: 'stun:stun.relay.metered.ca:80' },
+  {
+    urls: [
+      'turn:global.relay.metered.ca:80',
+      'turn:global.relay.metered.ca:80?transport=tcp',
+      'turn:global.relay.metered.ca:443',
+      'turns:global.relay.metered.ca:443?transport=tcp'
+    ],
+    username: 'e4e28d11f528575fab6a9738',
+    credential: 'HEr7VA5hTzIzqDi7'
+  },
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:stun2.l.google.com:19302' },
