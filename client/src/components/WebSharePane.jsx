@@ -26,7 +26,11 @@ export default function WebSharePane({
     }
 
     try {
-      new URL(clean);
+      const parsed = new URL(clean);
+      if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+        setError('Only HTTP and HTTPS links are permitted.');
+        return;
+      }
       onShareUrl(clean);
     } catch {
       setError('Please enter a valid URL.');
@@ -125,7 +129,7 @@ export default function WebSharePane({
           <iframe
             src={activeUrl}
             title="Shared Web View"
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            sandbox="allow-scripts allow-forms allow-popups"
             className="w-full h-full border-0 bg-white"
           />
         ) : (

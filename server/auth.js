@@ -3,8 +3,9 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('./db');
 
+const crypto = require('crypto');
 const router = express.Router();
-const JWT_SECRET = process.env.JWT_SECRET || 'talk-to-stranger-secret-key-free-p2p';
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
 
 // Helper to sign JWT
 function generateToken(user) {

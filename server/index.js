@@ -1,3 +1,4 @@
+require('dotenv').config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -9,7 +10,94 @@ const { router: authRouter } = require('./auth');
 const app = express();
 const server = http.createServer(app);
 
-// Verified global STUN & fallback TURN configuration (bypasses VPNs, CGNAT, symmetric NAT)
+// 1. Security: Disable framework fingerprinting
+app.disable('x-powered-by');
+
+// 2. Security: Standard OWASP protection headers
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(self), microphone=(self), geolocation=()');
+  next();
+});
+
+// 3. Security: Domain Whitelist / CORS Lockdown
+const ALLOWED_ORIGINS = [
+  'https://talktostranger-9my8.onrender.com',
+  'https://vijay-1010110.github.io',
+  'http://localhost:5000',
+  'http://localhost:5173',
+  'http://127.0.0.1:5000',
+  'http://127.0.0.1:5173'
+];
+if (process.env.ALLOWED_ORIGINS) {
+  ALLOWED_ORIGINS.push(...process.env.ALLOWED_ORIGINS.split(',').map((s) => s.trim()));
+}
+
+function isOriginAllowed(origin) {
+  if (!origin) return true; // Server-to-server, curl, same-origin
+  if (ALLOWED_ORIGINS.includes(origin)) return true;
+  if (origin.endsWith('.onrender.com') || origin.endsWith('.github.io')) return true;
+  return false;
+}
+
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Blocked by CORS policy'));
+      }
+    },
+    methods: ['GET', 'POST', 'OPTIONS'],
+    credentials: true
+  })
+);
+
+app.use(express.json({ limit: '100kb' })); // Guard against oversized payload attacks
+
+// 4. Security: In-memory sliding rate limiter for Auth APIs (Anti-Brute Force / Anti-Bot)
+const ipRateLimits = new Map();
+function authRateLimiter(maxRequests = 20, windowMs = 60000) {
+  return (req, res, next) => {
+    const ip =
+      req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+      req.socket.remoteAddress ||
+      'unknown';
+    const now = Date.now();
+    let entry = ipRateLimits.get(ip);
+    if (!entry || now - entry.resetTime > windowMs) {
+      entry = { count: 1, resetTime: now };
+      ipRateLimits.set(ip, entry);
+    } else {
+      entry.count++;
+      if (entry.count > maxRequests) {
+        return res.status(429).json({ error: 'Too many requests. Please slow down.' });
+      }
+    }
+    next();
+  };
+}
+
+// Clean stale IP rate limit tracking every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, entry] of ipRateLimits.entries()) {
+    if (now - entry.resetTime > 60000) ipRateLimits.delete(ip);
+  }
+}, 5 * 60 * 1000);
+
+// Mount authentication API with rate limiting
+app.use('/api/auth', authRateLimiter(20, 60000), authRouter);
+
+// Serve static frontend in production
+const clientDist = path.join(__dirname, '../client/dist');
+app.use(express.static(clientDist));
+
+// 5. STUN & Dynamic TURN Configuration (Zero hardcoded secrets in source code)
 const DEFAULT_ICE_SERVERS = [
   { urls: 'stun:stun.relay.metered.ca:80' },
   { urls: 'stun:stun.l.google.com:19302' },
@@ -21,37 +109,24 @@ const DEFAULT_ICE_SERVERS = [
   { urls: 'stun:global.stun.twilio.com:3478' }
 ];
 
-const DEFAULT_METERED_TURN = [
-  {
-    urls: [
-      'turn:global.relay.metered.ca:80',
-      'turn:global.relay.metered.ca:80?transport=tcp',
-      'turn:global.relay.metered.ca:443',
-      'turns:global.relay.metered.ca:443?transport=tcp'
-    ],
-    username: 'e4e28d11f528575fab6a9738',
-    credential: 'HEr7VA5hTzIzqDi7'
-  }
-];
-
 let cachedMeteredServers = [];
 let lastMeteredFetch = 0;
 
-// Dynamic Metered TURN fetcher (provides seamless symmetric NAT & VPN traversal)
+// Dynamic Metered TURN fetcher via authenticated backend REST API
 async function refreshMeteredTurn() {
   const apiKey = process.env.METERED_API_KEY;
   const appName = process.env.METERED_APP_NAME;
 
   if (apiKey && appName) {
     try {
-      const url = `https://${appName}.metered.live/api/v1/turn/credentials?apiKey=${apiKey}`;
+      const url = `https://.metered.live/api/v1/turn/credentials?apiKey=`;
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
           cachedMeteredServers = data;
           lastMeteredFetch = Date.now();
-          console.log(`[WebRTC TURN] Successfully loaded ${data.length} dynamic TURN relay servers from Metered`);
+          console.log(`[WebRTC TURN] Loaded  dynamic TURN relay servers securely.`);
           return;
         }
       }
@@ -68,13 +143,11 @@ setInterval(refreshMeteredTurn, 30 * 60 * 1000);
 function getIceServers() {
   const servers = [...DEFAULT_ICE_SERVERS];
 
-  // 1. Prioritize dynamic Metered TURN credentials if configured
+  // 1. Dynamic credentials fetched from Metered API
   if (cachedMeteredServers.length > 0) {
     servers.unshift(...cachedMeteredServers);
-  }
-
-  // 2. Support custom self-hosted Coturn / Metered relay servers via env, or built-in credentials
-  if (process.env.TURN_USERNAME && process.env.TURN_CREDENTIAL) {
+  } else if (process.env.TURN_USERNAME && process.env.TURN_CREDENTIAL) {
+    // 2. Credentials securely injected via environment variables (Render / .env)
     const urls = process.env.TURN_URLS
       ? process.env.TURN_URLS.split(',').map((u) => u.trim())
       : [
@@ -88,18 +161,12 @@ function getIceServers() {
       username: process.env.TURN_USERNAME,
       credential: process.env.TURN_CREDENTIAL
     });
-  } else if (cachedMeteredServers.length === 0) {
-    // Inject verified Metered TURN relay servers as default fallback
-    servers.unshift(...DEFAULT_METERED_TURN);
   } else if (process.env.TURN_URLS) {
     const urls = process.env.TURN_URLS.split(',').map((u) => u.trim());
-    const turnEntry = { urls };
-    if (process.env.TURN_USERNAME) turnEntry.username = process.env.TURN_USERNAME;
-    if (process.env.TURN_CREDENTIAL) turnEntry.credential = process.env.TURN_CREDENTIAL;
-    servers.unshift(turnEntry);
+    servers.unshift({ urls });
   }
 
-  // 3. Support raw JSON ICE servers array if provided
+  // 3. Custom raw JSON ICE servers if provided
   if (process.env.ICE_SERVERS_JSON) {
     try {
       const parsed = JSON.parse(process.env.ICE_SERVERS_JSON);
@@ -114,23 +181,21 @@ function getIceServers() {
   return servers;
 }
 
-app.use(cors());
-app.use(express.json());
-
-// Mount authentication API
-app.use('/api/auth', authRouter);
-
-// Serve static frontend in production
-const clientDist = path.join(__dirname, '../client/dist');
-app.use(express.static(clientDist));
-
+// 6. Socket.IO Server with Strict Origin & Buffer Caps
 const io = new Server(server, {
   cors: {
-    origin: '*',
+    origin: (origin, callback) => {
+      if (isOriginAllowed(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Blocked by CORS policy'));
+      }
+    },
     methods: ['GET', 'POST']
   },
   pingTimeout: 10000,
-  pingInterval: 5000
+  pingInterval: 5000,
+  maxHttpBufferSize: 1e6 // 1MB maximum payload (prevents memory exhaustion)
 });
 
 const matchmaker = new Matchmaker();
@@ -151,6 +216,33 @@ function broadcastStats() {
   io.emit('stats-update', stats);
 }
 
+// Per-socket rate limiter to block automated message floods / rapid matchmaker abuse
+const socketEventCounts = new Map();
+function checkSocketRate(socketId, maxPerSec = 10) {
+  const now = Date.now();
+  let tracker = socketEventCounts.get(socketId);
+  if (!tracker || now - tracker.windowStart > 1000) {
+    tracker = { count: 1, windowStart: now };
+    socketEventCounts.set(socketId, tracker);
+    return true;
+  }
+  tracker.count++;
+  return tracker.count <= maxPerSec;
+}
+
+const ALLOWED_MODES = new Set(['chat', 'audio', 'video']);
+const ALLOWED_TIERS = new Set(['guest', 'standard', 'priority']);
+const ALLOWED_GENDERS = new Set(['male', 'female', 'other']);
+const ALLOWED_REGIONS = new Set([
+  'global',
+  'north_america',
+  'europe',
+  'asia',
+  'south_america',
+  'africa',
+  'oceania'
+]);
+
 io.on('connection', (socket) => {
   // Extract unique client identity
   const clientId =
@@ -166,20 +258,39 @@ io.on('connection', (socket) => {
 
   broadcastStats();
 
-  // 1. Join queue / Find stranger
-  socket.on('find-stranger', ({ mode = 'video', tier = 'guest', gender = 'other', region = 'global' }) => {
+  // 1. Join queue / Find stranger (validated & rate-limited)
+  socket.on('find-stranger', (payload = {}) => {
+    if (!checkSocketRate(socket.id, 5)) return;
+
     cleanupCurrentMatch(socket);
 
-    const result = matchmaker.addUser(socket.id, mode, tier, gender, region);
+    const safeMode = ALLOWED_MODES.has(payload.mode) ? payload.mode : 'video';
+    const safeTier = ALLOWED_TIERS.has(payload.tier) ? payload.tier : 'guest';
+    const safeGender = ALLOWED_GENDERS.has(payload.gender) ? payload.gender : 'other';
+    const safeRegion = ALLOWED_REGIONS.has(payload.region) ? payload.region : 'global';
+
+    const result = matchmaker.addUser(socket.id, safeMode, safeTier, safeGender, safeRegion);
 
     if (result && result.matched) {
-      const { user1, user2, user1Tier, user2Tier, user1Gender, user2Gender, user1Region, user2Region, roomId } = result;
+      const {
+        user1,
+        user2,
+        user1Tier,
+        user2Tier,
+        user1Gender,
+        user2Gender,
+        user1Region,
+        user2Region,
+        roomId
+      } = result;
 
       const s1 = io.sockets.sockets.get(user1);
       const s2 = io.sockets.sockets.get(user2);
 
       if (s1) s1.join(roomId);
       if (s2) s2.join(roomId);
+
+      const iceServers = getIceServers();
 
       // Notify initiator
       io.to(user1).emit('match-found', {
@@ -189,8 +300,8 @@ io.on('connection', (socket) => {
         partnerGender: user2Gender || 'other',
         partnerRegion: user2Region || 'global',
         isInitiator: true,
-        mode,
-        iceServers: getIceServers()
+        mode: safeMode,
+        iceServers
       });
 
       // Notify receiver
@@ -201,22 +312,25 @@ io.on('connection', (socket) => {
         partnerGender: user1Gender || 'other',
         partnerRegion: user1Region || 'global',
         isInitiator: false,
-        mode,
-        iceServers: getIceServers()
+        mode: safeMode,
+        iceServers
       });
 
       broadcastStats();
     } else {
       socket.emit('waiting-for-stranger', {
-        mode,
-        message: tier === 'priority' ? 'Priority queue active. Looking for a stranger...' : 'Looking for a stranger...'
+        mode: safeMode,
+        message: safeTier === 'priority' ? 'Priority queue active. Looking for a stranger...' : 'Looking for a stranger...'
       });
       broadcastStats();
     }
   });
 
-  // 2. WebRTC Signaling relay (Offer, Answer, ICE Candidates)
-  socket.on('signal', ({ targetId, signal }) => {
+  // 2. WebRTC Signaling relay (Offer, Answer, ICE Candidates with strict validation)
+  socket.on('signal', ({ targetId, signal } = {}) => {
+    if (!targetId || typeof targetId !== 'string') return;
+    if (!signal || typeof signal !== 'object') return;
+
     const match = matchmaker.getMatch(socket.id);
     if (!match || match.partnerId !== targetId) {
       return;
@@ -227,41 +341,64 @@ io.on('connection', (socket) => {
     });
   });
 
-  // 3. Chat message relay
-  socket.on('chat-message', ({ text, id, timestamp }) => {
+  // 3. Chat message relay (length capped, control characters stripped, rate-limited)
+  socket.on('chat-message', ({ text, id, timestamp } = {}) => {
+    if (!checkSocketRate(socket.id, 8)) return; // Max 8 messages / sec
+    if (!text || typeof text !== 'string') return;
+
     const match = matchmaker.getMatch(socket.id);
     if (!match) return;
 
+    // Sanitize: max 1000 characters, strip null bytes and invisible control codes
+    const safeText = text.slice(0, 1000).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '');
+    if (!safeText.trim()) return;
+
     socket.to(match.partnerId).emit('chat-message', {
       sender: 'stranger',
-      text,
-      id: id || Date.now() + '-' + Math.random().toString(36).substr(2, 5),
-      timestamp: timestamp || Date.now()
+      text: safeText,
+      id: String(id || Date.now() + '-' + Math.random().toString(36).substr(2, 5)).slice(0, 64),
+      timestamp: typeof timestamp === 'number' ? timestamp : Date.now()
     });
   });
 
   // 4. Typing indicator
-  socket.on('typing', ({ isTyping }) => {
+  socket.on('typing', ({ isTyping } = {}) => {
     const match = matchmaker.getMatch(socket.id);
     if (match) {
       socket.to(match.partnerId).emit('stranger-typing', { isTyping: !!isTyping });
     }
   });
 
-  // 5. External Web Co-Browse
-  socket.on('web-share', ({ url, active }) => {
+  // 5. External Web Co-Browse (Strict URL protocol validation - blocks javascript: and data: attacks)
+  socket.on('web-share', ({ url, active } = {}) => {
     const match = matchmaker.getMatch(socket.id);
-    if (match) {
-      socket.to(match.partnerId).emit('web-share', {
-        url,
-        active: !!active,
-        senderId: socket.id
-      });
+    if (!match) return;
+
+    let safeUrl = '';
+    if (active && url && typeof url === 'string') {
+      try {
+        const parsed = new URL(url);
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+          safeUrl = parsed.href;
+        } else {
+          return; // Drop invalid protocols (e.g. javascript:, data:, file:)
+        }
+      } catch {
+        return;
+      }
     }
+
+    socket.to(match.partnerId).emit('web-share', {
+      url: safeUrl,
+      active: !!active && !!safeUrl,
+      senderId: socket.id
+    });
   });
 
-  // 6. Skip stranger / Next
-  socket.on('skip-stranger', ({ requeue = false, mode, tier = 'guest', gender = 'other', region = 'global' }) => {
+  // 6. Skip stranger / Next (Rate-limited)
+  socket.on('skip-stranger', ({ requeue = false, mode, tier = 'guest', gender = 'other', region = 'global' } = {}) => {
+    if (!checkSocketRate(socket.id, 4)) return;
+
     const prevMatch = matchmaker.endMatch(socket.id);
     if (prevMatch) {
       io.to(prevMatch.partnerId).emit('stranger-left', {
@@ -278,16 +415,32 @@ io.on('connection', (socket) => {
     broadcastStats();
 
     if (requeue) {
-      const targetMode = mode || (prevMatch ? prevMatch.mode : 'video');
-      const result = matchmaker.addUser(socket.id, targetMode, tier, gender, region);
+      const safeMode = ALLOWED_MODES.has(mode) ? mode : (prevMatch ? prevMatch.mode : 'video');
+      const safeTier = ALLOWED_TIERS.has(tier) ? tier : 'guest';
+      const safeGender = ALLOWED_GENDERS.has(gender) ? gender : 'other';
+      const safeRegion = ALLOWED_REGIONS.has(region) ? region : 'global';
+
+      const result = matchmaker.addUser(socket.id, safeMode, safeTier, safeGender, safeRegion);
 
       if (result && result.matched) {
-        const { user1, user2, user1Tier, user2Tier, user1Gender, user2Gender, user1Region, user2Region, roomId } = result;
+        const {
+          user1,
+          user2,
+          user1Tier,
+          user2Tier,
+          user1Gender,
+          user2Gender,
+          user1Region,
+          user2Region,
+          roomId
+        } = result;
         const s1 = io.sockets.sockets.get(user1);
         const s2 = io.sockets.sockets.get(user2);
 
         if (s1) s1.join(roomId);
         if (s2) s2.join(roomId);
+
+        const iceServers = getIceServers();
 
         io.to(user1).emit('match-found', {
           roomId,
@@ -296,8 +449,8 @@ io.on('connection', (socket) => {
           partnerGender: user2Gender || 'other',
           partnerRegion: user2Region || 'global',
           isInitiator: true,
-          mode: targetMode,
-          iceServers: FREE_ICE_SERVERS
+          mode: safeMode,
+          iceServers
         });
 
         io.to(user2).emit('match-found', {
@@ -307,13 +460,13 @@ io.on('connection', (socket) => {
           partnerGender: user1Gender || 'other',
           partnerRegion: user1Region || 'global',
           isInitiator: false,
-          mode: targetMode,
-          iceServers: FREE_ICE_SERVERS
+          mode: safeMode,
+          iceServers
         });
       } else {
         socket.emit('waiting-for-stranger', {
-          mode: targetMode,
-          message: tier === 'priority' ? 'Priority queue active. Looking for a stranger...' : 'Looking for a stranger...'
+          mode: safeMode,
+          message: safeTier === 'priority' ? 'Priority queue active. Looking for a stranger...' : 'Looking for a stranger...'
         });
       }
       broadcastStats();
@@ -329,7 +482,8 @@ io.on('connection', (socket) => {
 
   // 8. Disconnect
   socket.on('disconnect', () => {
-    // Remove from unique client tracker
+    socketEventCounts.delete(socket.id);
+
     const userSockets = connectedClients.get(clientId);
     if (userSockets) {
       userSockets.delete(socket.id);
@@ -365,12 +519,12 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// ICE configuration diagnostic endpoint
+// ICE configuration diagnostic endpoint (Never leaks secret credentials in plain HTTP)
 app.get('/api/ice-servers', (req, res) => {
   res.json({
     status: 'ok',
-    iceServers: getIceServers(),
-    hasCustomTurn: !!process.env.TURN_URLS
+    hasCustomTurn: !!(process.env.TURN_URLS || (process.env.TURN_USERNAME && process.env.TURN_CREDENTIAL)),
+    hasMeteredTurn: cachedMeteredServers.length > 0
   });
 });
 
@@ -381,6 +535,6 @@ app.use((req, res) => {
 
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-  console.log(`[TalkToStranger] Server active on port ${PORT}`);
-  console.log(`[Unique Tracking] Online user count tracks unique devices/browsers.`);
+  console.log("[TalkToStranger] Server active on port " + PORT);
+  console.log("[Security] OWASP headers, CORS lockdown, rate limiting, and parameter validation active.");
 });

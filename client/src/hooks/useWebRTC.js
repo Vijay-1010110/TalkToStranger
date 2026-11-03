@@ -1,18 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 
-// Verified global STUN & TURN relay configuration (bypasses VPNs, CGNAT, symmetric NAT)
+// Verified, ultra-fast global STUN configuration (TURN relays are injected securely by backend per session)
 const DEFAULT_ICE_SERVERS = [
-  { urls: 'stun:stun.relay.metered.ca:80' },
-  {
-    urls: [
-      'turn:global.relay.metered.ca:80',
-      'turn:global.relay.metered.ca:80?transport=tcp',
-      'turn:global.relay.metered.ca:443',
-      'turns:global.relay.metered.ca:443?transport=tcp'
-    ],
-    username: 'e4e28d11f528575fab6a9738',
-    credential: 'HEr7VA5hTzIzqDi7'
-  },
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
   { urls: 'stun:stun2.l.google.com:19302' },
@@ -561,22 +550,8 @@ export function useWebRTC({ socket, onDataMessage, onDataTyping, onConnectionSta
     partnerIdRef.current = partnerId;
     remoteMediaStreamRef.current = new MediaStream();
 
-    // Ensure TURN servers are always present for VPN/symmetric NAT traversal
-    const finalIceServers = (iceServers && iceServers.length > 0) ? [...iceServers] : [...DEFAULT_ICE_SERVERS];
-    const hasTurn = finalIceServers.some(s => {
-      const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
-      return urls.some(u => typeof u === 'string' && u.toLowerCase().startsWith('turn'));
-    });
-    if (!hasTurn) {
-      const turnServers = DEFAULT_ICE_SERVERS.filter(s => {
-        const urls = Array.isArray(s.urls) ? s.urls : [s.urls];
-        return urls.some(u => typeof u === 'string' && u.toLowerCase().startsWith('turn'));
-      });
-      finalIceServers.unshift(...turnServers);
-    }
-
     const pc = new RTCPeerConnection({
-      iceServers: finalIceServers,
+      iceServers: iceServers && iceServers.length > 0 ? iceServers : DEFAULT_ICE_SERVERS,
       iceCandidatePoolSize: 10,
       bundlePolicy: 'max-bundle',
       rtcpMuxPolicy: 'require'
